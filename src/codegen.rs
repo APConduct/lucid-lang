@@ -283,7 +283,7 @@ mod tests {
                     ty: None,
                 },
             ],
-            return_type: None,
+            return_types: Vec::new(),
             body: vec![Stmt::Return(vec![Expr::BinOp {
                 left: Box::new(Expr::Ident("x".to_string())),
                 op: BinOp::Add,
@@ -294,8 +294,8 @@ mod tests {
         let mut codegen = CodeGen::new();
         codegen.gen_stmt(&ast);
         let expected = r#"function add(x, y)
-  return (x + y)
-end"#;
+          return (x + y)
+        end"#;
         assert_eq!(codegen.output.trim(), expected);
     }
 

@@ -7,6 +7,7 @@ pub mod codegen;
 pub mod compiler;
 pub mod lexer;
 pub mod parser;
+pub mod type_checker;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

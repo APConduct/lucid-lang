@@ -251,12 +251,17 @@ impl Parser {
 
         self.expect(Token::RParen)?;
 
-        // Parse return type annotation
-        let return_type = if self.current() == &Token::Colon {
+        // Parse return type annotations (can be multiple)
+        let return_types = if self.current() == &Token::Colon {
             self.advance();
-            Some(self.parse_type()?)
+            let mut types = vec![self.parse_type()?];
+            while self.current() == &Token::Comma {
+                self.advance();
+                types.push(self.parse_type()?);
+            }
+            types
         } else {
-            None
+            Vec::new()
         };
 
         // Parse function body
@@ -270,7 +275,7 @@ impl Parser {
         Ok(Stmt::FunctionDecl {
             name,
             params,
-            return_type,
+            return_types,
             body,
         })
     }

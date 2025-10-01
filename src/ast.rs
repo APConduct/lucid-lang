@@ -96,7 +96,7 @@ pub enum Stmt {
     FunctionDecl {
         name: String,
         params: Vec<TypedIdent>,
-        return_type: Option<Type>,
+        return_types: Vec<Type>,
         body: Vec<Stmt>,
     },
     If {
@@ -162,7 +162,7 @@ mod tests {
                         ty: Some(Type::Number),
                     },
                 ],
-                return_type: Some(Type::Number),
+                return_types: vec![Type::Number],
                 body: vec![Stmt::Return(vec![Expr::BinOp {
                     left: Box::new(Expr::Ident("x".to_string())),
                     op: BinOp::Add,
