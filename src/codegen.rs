@@ -293,10 +293,11 @@ mod tests {
 
         let mut codegen = CodeGen::new();
         codegen.gen_stmt(&ast);
-        let expected = r#"function add(x, y)
-          return (x + y)
-        end"#;
-        assert_eq!(codegen.output.trim(), expected);
+        let expected = r#"
+function add(x, y)
+  return (x + y)
+end"#;
+        assert_eq!(codegen.output.trim(), expected.trim());
     }
 
     #[test]
