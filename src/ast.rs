@@ -1,6 +1,3 @@
-use std::fs;
-use std::path::PathBuf;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Number,
@@ -14,7 +11,7 @@ pub enum Type {
 }
 
 impl Type {
-    fn from_str(s: &str) -> Option<Self> {
+    pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "number" => Some(Type::Number),
             "string" => Some(Type::String),
