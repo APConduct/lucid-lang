@@ -514,3 +514,87 @@ impl Parser {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_expression() {
+        let input = "1 + 2";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let expr = parser.parse_expr().unwrap();
+        let expected = Expr::BinOp {
+            left: Box::new(Expr::Number(1.0)),
+            op: BinOp::Add,
+            right: Box::new(Expr::Number(2.0)),
+        };
+        assert!(
+            format!("{:?}", expr) == format!("{:?}", expected),
+            "Parsed expr: {:?}, expected: {:?}",
+            expr,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_parse_table() {
+        let input = "{1, 2, 3}";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let expr = parser.parse_expr().unwrap();
+        let expected = Expr::Table(vec![
+            TableField {
+                key: None,
+                value: Expr::Number(1.0),
+            },
+            TableField {
+                key: None,
+                value: Expr::Number(2.0),
+            },
+            TableField {
+                key: None,
+                value: Expr::Number(3.0),
+            },
+        ]);
+        assert!(
+            format!("{:?}", expr) == format!("{:?}", expected),
+            "Parsed expr: {:?}, expected: {:?}",
+            expr,
+            expected
+        );
+    }
+
+    #[test]
+    #[ignore = "key/value pairs are not supported yet"]
+    fn test_parse_table_with_keys() {
+        let input = "{a = 1, b = 2, c = 3}";
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let expr = parser.parse_expr().unwrap();
+        let expected = Expr::Table(vec![
+            TableField {
+                key: Some(Expr::Ident("a".to_string())),
+                value: Expr::Number(1.0),
+            },
+            TableField {
+                key: Some(Expr::Ident("b".to_string())),
+                value: Expr::Number(2.0),
+            },
+            TableField {
+                key: Some(Expr::Ident("c".to_string())),
+                value: Expr::Number(3.0),
+            },
+        ]);
+        assert!(
+            format!("{:?}", expr) == format!("{:?}", expected),
+            "Parsed expr: {:?}, expected: {:?}",
+            expr,
+            expected
+        );
+    }
+}
