@@ -87,6 +87,10 @@ impl Parser {
     fn parse_local(&mut self) -> Result<Stmt, String> {
         self.expect(Token::Local)?;
 
+        if self.current() == &Token::Function {
+            return self.parse_local_function();
+        }
+
         let mut vars = Vec::new();
 
         // Parse variable names with optional types
@@ -129,6 +133,80 @@ impl Parser {
         };
 
         Ok(Stmt::Local { vars, init })
+    }
+
+    fn parse_local_function(&mut self) -> Result<Stmt, String> {
+        self.expect(Token::Function)?;
+
+        let name = if let Token::Ident(n) = self.current() {
+            let n = n.clone();
+            self.advance();
+            n
+        } else {
+            return Err("Expected function name after 'local function'".to_string());
+        };
+
+        self.expect(Token::LParen)?;
+
+        let mut params = Vec::new();
+        if self.current() != &Token::RParen {
+            loop {
+                if let Token::Ident(param_name) = self.current() {
+                    let param_name = param_name.clone();
+                    self.advance();
+
+                    let ty = if self.current() == &Token::Colon {
+                        self.advance();
+                        Some(self.parse_type()?)
+                    } else {
+                        None
+                    };
+
+                    params.push(TypedIdent {
+                        name: param_name,
+                        ty,
+                    });
+
+                    if self.current() == &Token::Comma {
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                } else {
+                    return Err("Expected parameter name.".to_string());
+                }
+            }
+        }
+
+        self.expect(Token::RParen)?;
+
+        let return_types = if self.current() == &Token::Colon {
+            self.advance();
+            let mut types = vec![self.parse_type()?];
+            while self.current() == &Token::Comma {
+                self.advance();
+                types.push(self.parse_type()?);
+            }
+            types
+        } else {
+            Vec::new()
+        };
+
+        let mut body = Vec::new();
+        while self.current() != &Token::End {
+            body.push(self.parse_stmt()?);
+        }
+
+        self.expect(Token::End)?;
+
+        Ok(Stmt::Local {
+            vars: vec![TypedIdent { name, ty: None }],
+            init: Some(vec![Expr::Function {
+                params,
+                return_types,
+                body,
+            }]),
+        })
     }
 
     fn parse_function(&mut self) -> Result<Stmt, String> {

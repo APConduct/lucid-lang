@@ -182,6 +182,23 @@ impl CodeGen {
                 }
                 self.emit(")");
             }
+            Expr::Function { params, body, .. } => {
+                self.emit("function(");
+                for (i, param) in params.iter().enumerate() {
+                    if i > 0 {
+                        self.emit(", ");
+                    }
+                    self.emit(&param.name);
+                }
+                self.emit(")\n");
+                self.indent += 1;
+                for s in body {
+                    self.gen_stmt(s);
+                }
+                self.indent -= 1;
+                self.emit_indent();
+                self.emit("end");
+            }
             Expr::Table(fields) => {
                 self.emit("{");
                 for (i, field) in fields.iter().enumerate() {

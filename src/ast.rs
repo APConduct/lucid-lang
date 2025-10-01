@@ -4,7 +4,7 @@ pub enum Type {
     String,
     Boolean,
     Nil,
-    Function(Vec<Type>, Box<Type>),
+    Function(Vec<Type>, Vec<Type>),
     Table,
     Any,
     UserDefined(String),
@@ -17,7 +17,7 @@ impl Type {
             "string" => Some(Type::String),
             "boolean" => Some(Type::Boolean),
             "nil" => Some(Type::Nil),
-            "function" => Some(Type::Function(vec![], Box::new(Type::Any))),
+            "function" => Some(Type::Function(vec![], vec![Type::Any])),
             "table" => Some(Type::Table),
             "any" => Some(Type::Any),
             _ => Some(Type::UserDefined(s.to_string())),
@@ -51,6 +51,11 @@ pub enum Expr {
     Index {
         table: Box<Expr>,
         index: Box<Expr>,
+    },
+    Function {
+        params: Vec<TypedIdent>,
+        return_types: Vec<Type>,
+        body: Vec<Stmt>,
     },
 }
 
