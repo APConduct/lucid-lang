@@ -26,7 +26,7 @@ impl Type {
 }
 
 #[derive(Debug, Clone)]
-pub struct TypeIdent {
+pub struct TypedIdent {
     pub name: String,
     pub ty: Option<Type>,
 }
@@ -81,7 +81,7 @@ pub enum BinOp {
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Local {
-        vars: Vec<TypeIdent>,
+        vars: Vec<TypedIdent>,
         init: Option<Vec<Expr>>,
     },
     Assign {
@@ -90,7 +90,7 @@ pub enum Stmt {
     },
     FunctionDecl {
         name: String,
-        params: Vec<TypeIdent>,
+        params: Vec<TypedIdent>,
         return_type: Option<Type>,
         body: Vec<Stmt>,
     },
@@ -148,11 +148,11 @@ mod tests {
             statements: vec![Stmt::FunctionDecl {
                 name: "add".to_string(),
                 params: vec![
-                    TypeIdent {
+                    TypedIdent {
                         name: "x".to_string(),
                         ty: Some(Type::Number),
                     },
-                    TypeIdent {
+                    TypedIdent {
                         name: "y".to_string(),
                         ty: Some(Type::Number),
                     },

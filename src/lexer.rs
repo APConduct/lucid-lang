@@ -260,3 +260,40 @@ impl Lexer {
         Token::String(s)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lexer() {
+        let input = r#"
+                local x = 10
+                function add(a, b)
+                    return a + b
+                end
+                if x > 5 then
+                    print("x is greater than 5")
+                else
+                    print("x is less than or equal to 5")
+                end
+                while x > 0 do
+                    print(x)
+                    x = x - 1
+                end
+                return x
+            "#;
+
+        let mut lexer = Lexer::new(input);
+        let mut tokens = Vec::new();
+        loop {
+            let tok = lexer.next_token();
+            if tok == Token::Eof {
+                break;
+            }
+            tokens.push(tok);
+        }
+
+        assert_eq!(tokens.len(), 48);
+    }
+}
