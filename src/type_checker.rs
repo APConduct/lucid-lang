@@ -40,7 +40,7 @@ impl TypeChecker {
         }
     }
 
-    fn lookup_generic(&self, name: &str) -> Option<Type> {
+    pub fn lookup_generic(&self, name: &str) -> Option<Type> {
         for scope in self.generic_scopes.iter().rev() {
             if let Some(ty) = scope.get(name) {
                 return Some(ty.clone());
@@ -170,7 +170,7 @@ impl TypeChecker {
                 then_block,
                 else_block,
             } => {
-                let cond_type = self.check_expr(condition);
+                let _cond_type = self.check_expr(condition);
                 // In Lua, any value can be used as a condition (nil and false are falsy)
                 // But we can warn if it's always true/false
 
