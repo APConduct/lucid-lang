@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use crate::ast::{BinOp, Expr, Program, Stmt, Type};
+use crate::ast::{BinOp, Expr, InterfaceDecl, Program, Stmt, Type};
 
 #[derive(Debug, Clone)]
 pub struct TypeChecker {
     scopes: Vec<HashMap<String, Type>>,
     generic_scopes: Vec<HashMap<String, Type>>,
+    interfaces: HashMap<String, InterfaceDecl>,
     errors: Vec<String>,
 }
 
@@ -14,6 +15,7 @@ impl TypeChecker {
         Self {
             scopes: vec![HashMap::new()],         // Global scope
             generic_scopes: vec![HashMap::new()], // Global generic scope
+            interfaces: HashMap::new(),           // Global interface scope
             errors: Vec::new(),
         }
     }
@@ -82,6 +84,26 @@ impl TypeChecker {
 
     fn check_stmt(&mut self, stmt: &Stmt) {
         match stmt {
+            Stmt::InterfaceDecl(interface) => {
+                // Register interface
+                self.interfaces
+                    .insert(interface.name.clone(), interface.clone());
+
+                // Push generic scope for interface generics
+                self.push_generic_scope();
+                for generic_param in &interface.generic_params {
+                    self.declare_generic(generic_param.name.clone());
+                }
+
+                // Check field types are valid
+                for field in &interface.fields {
+                    // Just verify the type is well-formed
+                    // (this will be expanded later for more sophisticated checking)
+                    let _ = &field.ty;
+                }
+
+                self.pop_generic_scope();
+            }
             Stmt::Local { vars, init } => {
                 // Check initializers first to get their types
                 let init_types = if let Some(exprs) = init {

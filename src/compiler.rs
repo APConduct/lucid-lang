@@ -222,4 +222,16 @@ end
         assert!(output.contains("function add(a, b)"));
         assert!(output.contains("local z = add(x, 10)"));
     }
+
+    #[test]
+    fn test_interface_declaration() {
+        let source = r#"
+interface Person
+    name: string
+    age: number
+end
+"#;
+        let mut compiler = Compiler::new();
+        assert!(compiler.compile(source).is_ok());
+    }
 }

@@ -38,6 +38,9 @@ impl CodeGen {
 
     fn gen_stmt(&mut self, stmt: &Stmt) {
         match stmt {
+            Stmt::InterfaceDecl(_) => {
+                // Interfaces are compile-time only, don't emit anything
+            }
             Stmt::Local { vars, init } => {
                 self.emit_indent();
                 self.emit("local ");

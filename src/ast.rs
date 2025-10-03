@@ -21,13 +21,13 @@ pub enum Type {
     /// Represents a map type (e.g., `{string: number}`)
     Map(Box<Type>, Box<Type>),
     /// Represents an interface type (e.g., `{name: string, age: number}`)
-    Interface(Vec<(String, Type)>),
+    Interface(String),
     /// Represents an enum type (e.g., `enum Color { Red, Green, Blue }`)
-    Enum(Vec<String>),
+    Enum(String),
     /// Represents a record type (e.g., `{ name: string, age: number }`)
-    Record(Vec<(String, Type)>),
+    Record(String),
     /// Represents a trait type (e.g., `trait Printable { print(): void }`)
-    Trait(Vec<(String, Type)>),
+    Trait(String),
     /// Represents an array with a single element (A.K.A. a table with a single element)
     MonoTable(Box<Type>), // Might add a "Wrapped" type and make this a Wrapped<Type>
     /// Represents a map with a single element (A.K.A. a table with a single element)
@@ -63,36 +63,33 @@ impl Display for Type {
             }
             Type::Table => write!(f, "table"),
             Type::Any => write!(f, "any"),
-            Type::Enum(variants) => write!(
+            Type::UserDefined(name) => write!(f, "{}", name),
+            Type::Generic(name) => write!(f, "{}", name),
+            Type::Union(types) => write!(
                 f,
-                "enum {}",
-                variants
+                "{}",
+                types
                     .iter()
-                    .map(|variant| variant.to_string())
+                    .map(|ty| ty.to_string())
                     .collect::<Vec<_>>()
-                    .join(", ")
+                    .join(" | ")
             ),
-            Type::Record(fields) => write!(
+            Type::Tuple(fields) => write!(
                 f,
-                "record {}",
+                "{{{}}}",
                 fields
                     .iter()
                     .map(|(name, ty)| format!("{}: {}", name, ty))
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            Type::Trait(methods) => write!(
-                f,
-                "trait {}",
-                methods
-                    .iter()
-                    .map(|(name, ty)| format!("{}: {}", name, ty))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            Type::Map(key, value) => write!(f, "{{{}: {}}}", key, value),
+            Type::Interface(name) => write!(f, "interface {}", name),
+            Type::Enum(name) => write!(f, "enum {}", name),
+            Type::Record(name) => write!(f, "record {}", name),
+            Type::Trait(name) => write!(f, "trait {}", name),
             Type::MonoTable(element) => write!(f, "mono_table({})", element),
             Type::MonoMap(key, value) => write!(f, "mono_map({}, {})", key, value),
-            _ => todo!("Implement type formatting for {:?}", self),
         }
     }
 }
@@ -143,6 +140,60 @@ pub struct GenericParam {
 pub struct TypedIdent {
     pub name: String,
     pub ty: Option<Type>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InterfaceField {
+    pub name: String,
+    pub ty: Type,
+}
+
+#[derive(Debug, Clone)]
+pub struct InterfaceDecl {
+    pub name: String,
+    pub generic_params: Vec<GenericParam>,
+    pub fields: Vec<InterfaceField>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TraitField {
+    pub name: String,
+    pub ty: Type,
+}
+
+#[derive(Debug, Clone)]
+pub struct TraitDecl {
+    pub name: String,
+    pub generic_params: Vec<GenericParam>,
+    pub fields: Vec<TraitField>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TraitImpl {
+    pub trait_name: String,
+    pub generic_params: Vec<GenericParam>,
+    pub fields: Vec<TraitField>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TraitFieldImpl {
+    pub trait_name: String,
+    pub generic_params: Vec<GenericParam>,
+    pub fields: Vec<TraitField>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordField {
+    pub name: String,
+    pub ty: Type,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecordDecl {
+    pub name: String,
+    pub generic_params: Vec<GenericParam>,
+    pub interfaces: Vec<String>,
+    pub fields: Vec<RecordField>,
 }
 
 #[derive(Debug, Clone)]
@@ -215,6 +266,7 @@ pub enum Stmt {
         return_types: Vec<Type>,
         body: Vec<Stmt>,
     },
+    InterfaceDecl(InterfaceDecl),
     If {
         condition: Expr,
         then_block: Vec<Stmt>,

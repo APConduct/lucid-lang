@@ -18,6 +18,7 @@ pub enum Token {
     True,
     False,
     Nil,
+    Interface,
 
     // Literals
     Number(f64),
@@ -330,6 +331,7 @@ impl Lexer {
             "true" => Token::True,
             "false" => Token::False,
             "nil" => Token::Nil,
+            "interface" => Token::Interface,
             _ => Token::Ident(ident),
         }
     }

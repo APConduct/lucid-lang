@@ -24,3 +24,8 @@ local b: string = identity("hello")
 local sn: string | number = identity("world")
 local x: number | nil = 42
 local y: number | nil = nil
+
+interface Person
+    name: string
+    age: number
+end

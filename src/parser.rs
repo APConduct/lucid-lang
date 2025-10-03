@@ -1,7 +1,9 @@
 use crate::{
-    ast::{BinOp, Expr, GenericParam, Program, Stmt, TableField, Type, TypedIdent},
+    ast::{BinOp, Expr, GenericParam, InterfaceField, Program, Stmt, TableField, Type, TypedIdent},
     lexer::{Lexer, Token},
 };
+
+use super::ast::InterfaceDecl;
 
 use tracing::Level;
 use tracing::event;
@@ -72,11 +74,42 @@ impl Parser {
         tracing::event!(tracing::Level::DEBUG, "Parsing statement");
         let _enter = _span.enter();
         match self.current() {
-            Token::Local => self.parse_local(),
-            Token::Function => self.parse_function(),
-            Token::If => self.parse_if(),
-            Token::While => self.parse_while(),
-            Token::Return => self.parse_return(),
+            Token::Local => {
+                tracing::event!(tracing::Level::DEBUG, "Parsing local statement");
+                let stmt = self.parse_local()?;
+                tracing::event!(tracing::Level::DEBUG, "Parsed local statement");
+                Ok(stmt)
+            }
+            Token::Function => {
+                tracing::event!(tracing::Level::DEBUG, "Parsing function statement");
+                let stmt = self.parse_function()?;
+                tracing::event!(tracing::Level::DEBUG, "Parsed function statement");
+                Ok(stmt)
+            }
+            Token::Interface => {
+                tracing::event!(tracing::Level::DEBUG, "Parsing interface statement");
+                let stmt = self.parse_interface()?;
+                tracing::event!(tracing::Level::DEBUG, "Parsed interface statement");
+                Ok(stmt)
+            }
+            Token::If => {
+                tracing::event!(tracing::Level::DEBUG, "Parsing if statement");
+                let stmt = self.parse_if()?;
+                tracing::event!(tracing::Level::DEBUG, "Parsed if statement");
+                Ok(stmt)
+            }
+            Token::While => {
+                tracing::event!(tracing::Level::DEBUG, "Parsing while statement");
+                let stmt = self.parse_while()?;
+                tracing::event!(tracing::Level::DEBUG, "Parsed while statement");
+                Ok(stmt)
+            }
+            Token::Return => {
+                tracing::event!(tracing::Level::DEBUG, "Parsing return statement");
+                let stmt = self.parse_return()?;
+                tracing::event!(tracing::Level::DEBUG, "Parsed return statement");
+                Ok(stmt)
+            }
             _ => {
                 // Try to parse as expression statement or assignment
                 let expr = self.parse_expr()?;
@@ -91,10 +124,16 @@ impl Parser {
                         self.advance();
                         values.push(self.parse_expr()?);
                     }
-
+                    tracing::event!(
+                        tracing::Level::DEBUG,
+                        "Finished parsing assignment statement"
+                    );
                     return Ok(Stmt::Assign { targets, values });
                 }
-
+                tracing::event!(
+                    tracing::Level::DEBUG,
+                    "Finished parsing expression statement"
+                );
                 Ok(Stmt::Expr(expr))
             }
         }
@@ -412,6 +451,59 @@ impl Parser {
         Ok(Stmt::Return(exprs))
     }
 
+    fn parse_interface(&mut self) -> Result<Stmt, String> {
+        self.expect(Token::Interface)?;
+
+        let name = if let Token::Ident(n) = self.current() {
+            let n = n.clone();
+            self.advance();
+            n
+        } else {
+            return Err("Expected interface name".to_string());
+        };
+
+        // Parse generic parameters
+        let generic_params = self.parse_generic_params()?;
+
+        let mut fields = Vec::new();
+
+        // Parse fields until 'end'
+        while self.current() != &Token::End {
+            if let Token::Ident(field_name) = self.current() {
+                let field_name = field_name.clone();
+                self.advance();
+
+                self.expect(Token::Colon)?;
+                let ty = self.parse_type()?;
+
+                fields.push(InterfaceField {
+                    name: field_name,
+                    ty,
+                });
+
+                // Optional comma or newline separator
+                if self.current() == &Token::Comma {
+                    self.advance();
+                }
+            } else if self.current() == &Token::End {
+                break;
+            } else {
+                return Err(format!(
+                    "Expected field name or 'end' in interface, got {:?}",
+                    self.current()
+                ));
+            }
+        }
+
+        self.expect(Token::End)?;
+
+        Ok(Stmt::InterfaceDecl(InterfaceDecl {
+            name,
+            generic_params,
+            fields,
+        }))
+    }
+
     fn parse_type(&mut self) -> Result<Type, String> {
         let _span = tracing::span!(Level::TRACE, "parse_type");
         let _enter = _span.enter();
@@ -600,7 +692,9 @@ impl Parser {
     fn parse_multiplicative(&mut self) -> Result<Expr, String> {
         let _span = tracing::span!(Level::TRACE, "parse_multiplicative");
         let _enter = _span.enter();
-        let mut left = self.parse_unary()?;
+        let mut left = self
+            .parse_unary()
+            .expect("Failed to parse unary expression");
 
         loop {
             let op = match self.current() {
@@ -611,7 +705,9 @@ impl Parser {
             };
 
             self.advance();
-            let right = self.parse_unary()?;
+            let right = self
+                .parse_unary()
+                .expect("Failed to parse unary expression");
             left = Expr::BinOp {
                 left: Box::new(left),
                 op,
@@ -630,16 +726,27 @@ impl Parser {
                 tracing::warn!("Unary operators are not implemented yet");
                 // TODO: Implement unary operators properly
                 self.advance();
+                tracing::warn!("About to call parse_unary recursively");
                 self.parse_unary()
             }
-            _ => self.parse_postfix(),
+            _ => {
+                tracing::warn!("About to call parse_postfix");
+                self.parse_postfix()
+            }
         }
     }
 
     fn parse_postfix(&mut self) -> Result<Expr, String> {
         let _span = tracing::span!(Level::TRACE, "parse_postfix");
         let _enter = _span.enter();
-        let mut expr = self.parse_primary()?;
+        let mut _expr = self.parse_primary();
+        if _expr.is_err() {
+            tracing::warn!(
+                "Failed to parse primary expression; Result was: {:?}",
+                _expr
+            );
+        }
+        let mut expr = _expr.expect("Failed to parse primary expression");
 
         loop {
             match self.current() {
