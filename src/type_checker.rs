@@ -5,13 +5,15 @@ use crate::ast::{BinOp, Expr, Program, Stmt, Type};
 #[derive(Debug, Clone)]
 pub struct TypeChecker {
     scopes: Vec<HashMap<String, Type>>,
+    generic_scopes: Vec<HashMap<String, Type>>,
     errors: Vec<String>,
 }
 
 impl TypeChecker {
     pub fn new() -> Self {
         Self {
-            scopes: vec![HashMap::new()], // Global scope
+            scopes: vec![HashMap::new()],         // Global scope
+            generic_scopes: vec![HashMap::new()], // Global generic scope
             errors: Vec::new(),
         }
     }
@@ -22,6 +24,29 @@ impl TypeChecker {
 
     fn pop_scope(&mut self) {
         self.scopes.pop();
+    }
+
+    fn push_generic_scope(&mut self) {
+        self.generic_scopes.push(HashMap::new());
+    }
+
+    fn pop_generic_scope(&mut self) {
+        self.generic_scopes.pop();
+    }
+
+    fn declare_generic(&mut self, name: String) {
+        if let Some(scope) = self.generic_scopes.last_mut() {
+            scope.insert(name.clone(), Type::Generic(name));
+        }
+    }
+
+    fn lookup_generic(&self, name: &str) -> Option<Type> {
+        for scope in self.generic_scopes.iter().rev() {
+            if let Some(ty) = scope.get(name) {
+                return Some(ty.clone());
+            }
+        }
+        None
     }
 
     fn declare(&mut self, name: String, ty: Type) {
@@ -101,6 +126,7 @@ impl TypeChecker {
 
             Stmt::FunctionDecl {
                 name,
+                generic_params,
                 params,
                 return_types,
                 body,
@@ -117,6 +143,12 @@ impl TypeChecker {
 
                 // Check function body in new scope
                 self.push_scope();
+                self.pop_generic_scope();
+
+                // Declare generic type parameters
+                for generic_param in generic_params {
+                    self.declare_generic(generic_param.name.clone());
+                }
 
                 // Declare parameters
                 for param in params {
@@ -129,6 +161,7 @@ impl TypeChecker {
                     self.check_stmt(s);
                 }
 
+                self.pop_generic_scope();
                 self.pop_scope();
             }
 
@@ -284,6 +317,7 @@ impl TypeChecker {
             }
 
             Expr::Function {
+                generic_params,
                 params,
                 return_types,
                 body,
@@ -295,6 +329,13 @@ impl TypeChecker {
 
                 // Check function body in new scope
                 self.push_scope();
+                self.push_generic_scope();
+
+                // Declare generic type parameters
+                for generic_param in generic_params {
+                    self.declare_generic(generic_param.name.clone());
+                }
+
                 for param in params {
                     let param_type = param.ty.clone().unwrap_or(Type::Any);
                     self.declare(param.name.clone(), param_type);
@@ -304,6 +345,7 @@ impl TypeChecker {
                     self.check_stmt(s);
                 }
 
+                self.pop_generic_scope();
                 self.pop_scope();
 
                 Type::Function(param_types, return_types.clone())

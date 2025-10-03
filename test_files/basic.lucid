@@ -13,3 +13,10 @@ local function divmod(a: number, b: number): number, number
 end
 
 local q: number, r: number = divmod(10, 3)
+
+local function identity<T>(x: T): T
+    return x
+end
+
+local a: number = identity(42)
+local b: string = identity("hello")

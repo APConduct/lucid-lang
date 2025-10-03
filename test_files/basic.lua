@@ -9,3 +9,8 @@ local divmod = function(a, b)
   return (a / b), (a % b)
 end
 local q, r = divmod(10, 3)
+local identity = function(x)
+  return x
+end
+local a = identity(42)
+local b = identity("hello")

@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinOp, Expr, Program, Stmt, TableField, Type, TypedIdent},
+    ast::{BinOp, Expr, GenericParam, Program, Stmt, TableField, Type, TypedIdent},
     lexer::{Lexer, Token},
 };
 
@@ -135,6 +135,36 @@ impl Parser {
         Ok(Stmt::Local { vars, init })
     }
 
+    fn parse_generic_params(&mut self) -> Result<Vec<GenericParam>, String> {
+        let mut generic_params = Vec::new();
+
+        if self.current() == &Token::Lt {
+            self.advance();
+            loop {
+                if let Token::Ident(name) = self.current() {
+                    let name = name.clone();
+                    self.advance();
+                    generic_params.push(GenericParam { name });
+
+                    if self.current() == &Token::Comma {
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                } else {
+                    return Err("Expected generic parameter name".to_string());
+                }
+            }
+
+            if self.current() == &Token::Gt {
+                self.advance();
+            } else {
+                return Err("Expected '>' after generic parameters".to_string());
+            }
+        }
+        Ok(generic_params)
+    }
+
     fn parse_local_function(&mut self) -> Result<Stmt, String> {
         self.expect(Token::Function)?;
 
@@ -145,6 +175,9 @@ impl Parser {
         } else {
             return Err("Expected function name after 'local function'".to_string());
         };
+
+        // Parse generic parameters
+        let generic_params = self.parse_generic_params()?;
 
         self.expect(Token::LParen)?;
 
@@ -202,6 +235,7 @@ impl Parser {
         Ok(Stmt::Local {
             vars: vec![TypedIdent { name, ty: None }],
             init: Some(vec![Expr::Function {
+                generic_params,
                 params,
                 return_types,
                 body,
@@ -219,6 +253,8 @@ impl Parser {
         } else {
             return Err("Expected function name".to_string());
         };
+
+        let generic_params = self.parse_generic_params()?;
 
         self.expect(Token::LParen)?;
 
@@ -274,6 +310,7 @@ impl Parser {
 
         Ok(Stmt::FunctionDecl {
             name,
+            generic_params,
             params,
             return_types,
             body,

@@ -49,6 +49,9 @@ pub enum Token {
     Colon,
     Semicolon,
 
+    LAngle,
+    RAngle,
+
     Eof,
 }
 
@@ -89,6 +92,36 @@ impl Lexer {
         }
     }
 
+    fn skip_comment(&mut self) {
+        // Skip --
+        self.advance();
+        self.advance();
+
+        // Check for block comment --[[
+        if self.current() == Some('[') && self.peek(1) == Some('[') {
+            self.advance(); // [
+            self.advance(); // [
+
+            // Skip until ]]
+            while let Some(c) = self.current() {
+                if c == ']' && self.peek(1) == Some(']') {
+                    self.advance(); // ]
+                    self.advance(); // ]
+                    break;
+                }
+                self.advance();
+            }
+        } else {
+            // Single-line comment: skip until newline
+            while let Some(c) = self.current() {
+                if c == '\n' {
+                    break;
+                }
+                self.advance();
+            }
+        }
+    }
+
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
@@ -117,6 +150,10 @@ impl Lexer {
                 self.advance();
                 Token::Percent
             }
+            // Some('|') => {
+            //     self.advance();
+            //     Token::Pipe
+            // }
             Some('(') => {
                 self.advance();
                 Token::LParen
@@ -295,6 +332,23 @@ mod tests {
         }
 
         assert_eq!(tokens.len(), 48);
+    }
+
+    #[test]
+    fn test_lexer_numbers() {
+        let mut lexer = Lexer::new("123 45.67");
+        assert_eq!(lexer.next_token(), Token::Number(123.0));
+        assert_eq!(lexer.next_token(), Token::Number(45.67));
+    }
+
+    #[test]
+    fn test_lexer_keywords() {
+        let mut lexer = Lexer::new("local function if then end");
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Function);
+        assert_eq!(lexer.next_token(), Token::If);
+        assert_eq!(lexer.next_token(), Token::Then);
+        assert_eq!(lexer.next_token(), Token::End);
     }
 }
 

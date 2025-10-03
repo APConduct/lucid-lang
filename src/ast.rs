@@ -1,3 +1,6 @@
+/// Represents a type in the Lucid language.
+///
+/// This enum defines all the possible types that can be used in the language.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Number,
@@ -8,6 +11,7 @@ pub enum Type {
     Table,
     Any,
     UserDefined(String),
+    Generic(String),
 }
 
 impl Type {
@@ -20,9 +24,20 @@ impl Type {
             "function" => Some(Type::Function(vec![], vec![Type::Any])),
             "table" => Some(Type::Table),
             "any" => Some(Type::Any),
-            _ => Some(Type::UserDefined(s.to_string())),
+            _ => {
+                if s.len() == 1 && s.chars().next().unwrap().is_uppercase() {
+                    Some(Type::Generic(s.to_string()))
+                } else {
+                    Some(Type::UserDefined(s.to_string()))
+                }
+            }
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct GenericParam {
+    pub name: String,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +68,7 @@ pub enum Expr {
         index: Box<Expr>,
     },
     Function {
+        generic_params: Vec<GenericParam>,
         params: Vec<TypedIdent>,
         return_types: Vec<Type>,
         body: Vec<Stmt>,
@@ -95,6 +111,7 @@ pub enum Stmt {
     },
     FunctionDecl {
         name: String,
+        generic_params: Vec<GenericParam>,
         params: Vec<TypedIdent>,
         return_types: Vec<Type>,
         body: Vec<Stmt>,
@@ -152,6 +169,7 @@ mod tests {
         let program = Program {
             statements: vec![Stmt::FunctionDecl {
                 name: "add".to_string(),
+                generic_params: Vec::new(),
                 params: vec![
                     TypedIdent {
                         name: "x".to_string(),

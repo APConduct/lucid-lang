@@ -247,6 +247,8 @@ impl CodeGen {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::{Type, TypedIdent};
+
     use super::*;
 
     #[test]
@@ -289,6 +291,7 @@ mod tests {
                 op: BinOp::Add,
                 right: Box::new(Expr::Ident("y".to_string())),
             }])],
+            generic_params: Vec::new(),
         };
 
         let mut codegen = CodeGen::new();
@@ -406,5 +409,22 @@ end"#;
         codegen.gen_stmt(&ast);
         let expected = r#"{["a"] = 1, ["b"] = 2}"#;
         assert_eq!(codegen.output.trim(), expected);
+    }
+
+    #[test]
+    fn test_codegen_simple() {
+        let program = Program {
+            statements: vec![Stmt::Local {
+                vars: vec![TypedIdent {
+                    name: "x".to_string(),
+                    ty: Some(Type::Number),
+                }],
+                init: Some(vec![Expr::Number(42.0)]),
+            }],
+        };
+
+        let mut codegen = CodeGen::new();
+        let output = codegen.generate(&program);
+        assert_eq!(output.trim(), "local x = 42");
     }
 }
