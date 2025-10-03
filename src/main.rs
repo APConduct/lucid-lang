@@ -10,6 +10,7 @@ pub mod parser;
 pub mod type_checker;
 
 fn main() {
+    tracing_subscriber::fmt::init();
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {

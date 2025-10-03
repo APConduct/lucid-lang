@@ -3,6 +3,10 @@ use crate::{
     lexer::{Lexer, Token},
 };
 
+use tracing::Level;
+use tracing::event;
+use tracing::span;
+
 pub struct Parser {
     tokens: Vec<Token>,
     pos: usize,
@@ -13,6 +17,7 @@ impl Parser {
         let mut tokens = Vec::new();
         loop {
             let tok = lexer.next_token();
+            tracing::trace!("Wrapping token {:?}", tok);
             let is_eof = tok == Token::Eof;
             tokens.push(tok);
             if is_eof {
@@ -24,6 +29,11 @@ impl Parser {
 
     fn current(&self) -> &Token {
         self.tokens.get(self.pos).unwrap_or(&Token::Eof)
+    }
+
+    fn tok_ref_wrap<'a>(&self, tok: &'a Token) -> &'a Token {
+        tracing::trace!("Wrapping token {:?}", tok);
+        tok
     }
 
     pub fn peek(&self, offset: usize) -> &Token {
@@ -47,6 +57,9 @@ impl Parser {
     }
 
     pub fn parse_program(&mut self) -> Result<Program, String> {
+        let _span = tracing::span!(tracing::Level::DEBUG, "parse_program");
+        tracing::event!(tracing::Level::INFO, "Parsing program");
+        let _enter = _span.enter();
         let mut statements = Vec::new();
         while self.current() != &Token::Eof {
             statements.push(self.parse_stmt()?);
@@ -55,6 +68,9 @@ impl Parser {
     }
 
     fn parse_stmt(&mut self) -> Result<Stmt, String> {
+        let _span = tracing::span!(tracing::Level::INFO, "parse_stmt");
+        tracing::event!(tracing::Level::DEBUG, "Parsing statement");
+        let _enter = _span.enter();
         match self.current() {
             Token::Local => self.parse_local(),
             Token::Function => self.parse_function(),
@@ -85,6 +101,8 @@ impl Parser {
     }
 
     fn parse_local(&mut self) -> Result<Stmt, String> {
+        let _span = tracing::span!(target: "parser", tracing::Level::INFO, "parse_local");
+        let _guard = _span.enter();
         self.expect(Token::Local)?;
 
         if self.current() == &Token::Function {
@@ -97,16 +115,18 @@ impl Parser {
         loop {
             if let Token::Ident(name) = self.current() {
                 let name = name.clone();
+                tracing::event!(target: "parser", tracing::Level::INFO, "Parsed variable: {}", name);
                 self.advance();
 
                 // Check for type annotation
                 let ty = if self.current() == &Token::Colon {
                     self.advance();
-                    Some(self.parse_type()?)
+                    Some(self.parse_type().expect("Expected type after ':'"))
                 } else {
                     None
                 };
 
+                tracing::event!(target: "parser", tracing::Level::INFO, "Parsed variable: {}", name);
                 vars.push(TypedIdent { name, ty });
 
                 if self.current() == &Token::Comma {
@@ -136,6 +156,9 @@ impl Parser {
     }
 
     fn parse_generic_params(&mut self) -> Result<Vec<GenericParam>, String> {
+        let _span = tracing::span!(tracing::Level::DEBUG, "parse_generic_params");
+        tracing::event!(tracing::Level::DEBUG, "Parsing generic parameters");
+        let _enter = _span.enter();
         let mut generic_params = Vec::new();
 
         if self.current() == &Token::Lt {
@@ -166,6 +189,8 @@ impl Parser {
     }
 
     fn parse_local_function(&mut self) -> Result<Stmt, String> {
+        let _span = tracing::span!(tracing::Level::TRACE, "parse_local_function");
+        let _enter = _span.enter();
         self.expect(Token::Function)?;
 
         let name = if let Token::Ident(n) = self.current() {
@@ -244,6 +269,8 @@ impl Parser {
     }
 
     fn parse_function(&mut self) -> Result<Stmt, String> {
+        let _span = tracing::span!(tracing::Level::TRACE, "parse_function");
+        let _enter = _span.enter();
         self.expect(Token::Function)?;
 
         let name = if let Token::Ident(n) = self.current() {
@@ -318,6 +345,8 @@ impl Parser {
     }
 
     fn parse_if(&mut self) -> Result<Stmt, String> {
+        let _span = tracing::span!(tracing::Level::TRACE, "parse_if");
+        let _enter = _span.enter();
         self.expect(Token::If)?;
         let condition = self.parse_expr()?;
         self.expect(Token::Then)?;
@@ -348,13 +377,15 @@ impl Parser {
     }
 
     fn parse_while(&mut self) -> Result<Stmt, String> {
+        let _span = tracing::span!(tracing::Level::TRACE, "parse_while");
+        let _enter = _span.enter();
         self.expect(Token::While)?;
         let condition = self.parse_expr()?;
         self.expect(Token::Do)?;
 
         let mut body = Vec::new();
         while self.current() != &Token::End {
-            body.push(self.parse_stmt()?);
+            body.push(self.parse_stmt().expect("Failed to parse statement"));
         }
 
         self.expect(Token::End)?;
@@ -363,6 +394,8 @@ impl Parser {
     }
 
     fn parse_return(&mut self) -> Result<Stmt, String> {
+        let _span = tracing::span!(tracing::Level::TRACE, "parse_return");
+        let _enter = _span.enter();
         self.expect(Token::Return)?;
 
         let mut exprs = Vec::new();
@@ -380,20 +413,85 @@ impl Parser {
     }
 
     fn parse_type(&mut self) -> Result<Type, String> {
-        if let Token::Ident(type_name) = self.current() {
-            let type_name = type_name.clone();
-            self.advance();
-            Type::from_str(&type_name).ok_or_else(|| format!("Unknown type: {}", type_name))
-        } else {
-            Err("Expected type name".to_string())
+        let _span = tracing::span!(Level::TRACE, "parse_type");
+        let _enter = _span.enter();
+        let mut base_type = match self.current() {
+            Token::Ident(type_name) => {
+                tracing::trace!("Parsing type: {}", type_name.clone());
+                let type_name = type_name.clone();
+                self.advance();
+                Type::from_str(&type_name).ok_or_else(|| format!("Unknown type: {}", type_name))?
+            }
+            Token::Nil => {
+                tracing::trace!("Parsing type: nil");
+                self.advance();
+                Type::Nil
+            }
+            Token::True | Token::False => {
+                tracing::trace!("Parsing type: boolean");
+                self.advance();
+                Type::Boolean
+            }
+            _ => {
+                return Err(format!("Expected type name, got {}", self.current()));
+            }
+        };
+
+        // Check for union type (|)
+        if self.current() == &Token::Pipe {
+            let mut union_types = vec![base_type];
+
+            while self.current() == &Token::Pipe {
+                tracing::event!(Level::DEBUG, "found pipe, advancing to {}", self.current());
+                let _advance = self.advance();
+
+                let next_type = match self.current() {
+                    Token::Ident(type_name) => {
+                        tracing::event!(Level::DEBUG, "Parsing type: {}", type_name.clone());
+                        let type_name = type_name.clone();
+                        self.advance();
+                        Type::from_str(&type_name)
+                            .ok_or_else(|| format!("Unknown type: {}", type_name))?
+                    }
+                    Token::Nil => {
+                        tracing::event!(Level::DEBUG, "Parsing type: nil");
+                        self.advance();
+                        Type::Nil
+                    }
+                    Token::True | Token::False => {
+                        tracing::event!(Level::DEBUG, "Parsing type: boolean");
+                        self.advance();
+                        Type::Boolean
+                    }
+                    _ => {
+                        tracing::event!(
+                            Level::ERROR,
+                            "Expected type after '|', got {}",
+                            self.current()
+                        );
+                        return Err(format!("Expected type after '|', got {}", self.current()));
+                    }
+                };
+
+                union_types.push(next_type.clone());
+                tracing::event!(Level::DEBUG, "Parsed type: {}", next_type);
+            }
+
+            // Flatten and create union
+            base_type = Type::Union(Type::flatten_union(union_types));
         }
+        Ok(base_type)
     }
 
     fn parse_expr(&mut self) -> Result<Expr, String> {
+        let _span = tracing::span!(Level::TRACE, "parse_expr");
+        let _enter = _span.enter();
         self.parse_or()
     }
 
     fn parse_or(&mut self) -> Result<Expr, String> {
+        let _span = tracing::span!(Level::TRACE, "parse_or");
+        let _enter = _span.enter();
         let mut left = self.parse_and()?;
 
         while self.current() == &Token::Or {
@@ -410,11 +508,13 @@ impl Parser {
     }
 
     fn parse_and(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_comparison()?;
+        let _span = tracing::span!(Level::TRACE, "parse_and");
+        let _enter = _span.enter();
+        let mut left = self.parse_comparison().expect("Failed to parse comparison");
 
         while self.current() == &Token::And {
             self.advance();
-            let right = self.parse_comparison()?;
+            let right = self.parse_comparison().expect("Failed to parse comparison");
             left = Expr::BinOp {
                 left: Box::new(left),
                 op: BinOp::And,
@@ -426,7 +526,9 @@ impl Parser {
     }
 
     fn parse_comparison(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_concat()?;
+        let _span = tracing::span!(Level::TRACE, "parse_comparison");
+        let _enter = _span.enter();
+        let mut left = self.parse_concat().expect("Failed to parse concat");
 
         loop {
             let op = match self.current() {
@@ -440,7 +542,7 @@ impl Parser {
             };
 
             self.advance();
-            let right = self.parse_concat()?;
+            let right = self.parse_concat().expect("Failed to parse concat");
             left = Expr::BinOp {
                 left: Box::new(left),
                 op,
@@ -452,11 +554,13 @@ impl Parser {
     }
 
     fn parse_concat(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_additive()?;
+        let _span = tracing::span!(Level::TRACE, "parse_concat");
+        let _enter = _span.enter();
+        let mut left = self.parse_additive().expect("Failed to parse additive");
 
         while self.current() == &Token::Concat {
             self.advance();
-            let right = self.parse_additive()?;
+            let right = self.parse_additive().expect("Failed to parse additive");
             left = Expr::BinOp {
                 left: Box::new(left),
                 op: BinOp::Concat,
@@ -468,7 +572,11 @@ impl Parser {
     }
 
     fn parse_additive(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_multiplicative()?;
+        let _span = tracing::span!(Level::TRACE, "parse_additive");
+        let _enter = _span.enter();
+        let mut left = self
+            .parse_multiplicative()
+            .expect("Failed to parse multiplicative");
 
         loop {
             let op = match self.current() {
@@ -490,6 +598,8 @@ impl Parser {
     }
 
     fn parse_multiplicative(&mut self) -> Result<Expr, String> {
+        let _span = tracing::span!(Level::TRACE, "parse_multiplicative");
+        let _enter = _span.enter();
         let mut left = self.parse_unary()?;
 
         loop {
@@ -513,8 +623,11 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> Result<Expr, String> {
+        let _span = tracing::span!(Level::TRACE, "parse_unary");
+        let _enter = _span.enter();
         match self.current() {
             Token::Not | Token::Minus => {
+                tracing::warn!("Unary operators are not implemented yet");
                 // TODO: Implement unary operators properly
                 self.advance();
                 self.parse_unary()
@@ -524,6 +637,8 @@ impl Parser {
     }
 
     fn parse_postfix(&mut self) -> Result<Expr, String> {
+        let _span = tracing::span!(Level::TRACE, "parse_postfix");
+        let _enter = _span.enter();
         let mut expr = self.parse_primary()?;
 
         loop {
@@ -579,6 +694,8 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Result<Expr, String> {
+        let _span = tracing::span!(Level::TRACE, "parse_primary");
+        let _enter = _span.enter();
         match self.current().clone() {
             Token::Number(n) => {
                 self.advance();
@@ -617,6 +734,7 @@ impl Parser {
 
                 while self.current() != &Token::RBrace {
                     // TODO: Parse table fields properly (key-value pairs)
+                    tracing::warn!("Proper table fields parsing is not implemented yet");
                     let value = self.parse_expr()?;
                     fields.push(TableField { key: None, value });
 

@@ -151,6 +151,10 @@ impl CodeGen {
             }
             #[allow(unreachable_patterns)]
             _ => {
+                tracing::warn!(
+                    "Proper statement generation is not implemented for the statement type {:?} yet",
+                    stmt
+                );
                 // TODO: Implement other statement types
                 self.emit_line("-- TODO: Implement statement");
             }

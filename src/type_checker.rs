@@ -200,6 +200,7 @@ impl TypeChecker {
             }
 
             Stmt::Return(exprs) => {
+                tracing::warn!("Proper return type checking is not implemented yet");
                 // TODO: Check return types match function signature
                 for expr in exprs {
                     self.check_expr(expr);
@@ -385,6 +386,25 @@ impl TypeChecker {
             return true;
         }
 
+        // Generic types are compatible with anything (they're placeholders)
+        if matches!(expected, Type::Generic(_)) || matches!(actual, Type::Generic(_)) {
+            return true;
+        }
+
+        // If expected is a union, actual must be compatible with at least one variant
+        if let Type::Union(expected_types) = expected {
+            return expected_types
+                .iter()
+                .any(|t| self.types_compatible(t, actual));
+        }
+
+        // If actual is a union, all variants must be compatible with expected
+        if let Type::Union(actual_types) = actual {
+            return actual_types
+                .iter()
+                .all(|t| self.types_compatible(expected, t));
+        }
+
         // Check if types are equal
         match (expected, actual) {
             (Type::Number, Type::Number) => true,
@@ -411,5 +431,13 @@ impl TypeChecker {
 
     fn is_numeric(&self, ty: &Type) -> bool {
         matches!(ty, Type::Number | Type::Any)
+    }
+
+    pub fn is_string_or_number(&self, ty: &Type) -> bool {
+        match ty {
+            Type::String | Type::Number | Type::Any => true,
+            Type::Union(types) => types.iter().all(|t| self.is_string_or_number(t)),
+            _ => false,
+        }
     }
 }

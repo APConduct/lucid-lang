@@ -14,3 +14,6 @@ local identity = function(x)
 end
 local a = identity(42)
 local b = identity("hello")
+local sn = identity("world")
+local x = 42
+local y = nil

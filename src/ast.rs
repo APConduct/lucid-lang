@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// Represents a type in the Lucid language.
 ///
 /// This enum defines all the possible types that can be used in the language.
@@ -12,6 +14,87 @@ pub enum Type {
     Any,
     UserDefined(String),
     Generic(String),
+    /// Represents a union type (e.g., `number | string`)
+    Union(Vec<Type>),
+    /// Represents a tuple type (e.g., `{number, string}`)
+    Tuple(Vec<(String, Type)>),
+    /// Represents a map type (e.g., `{string: number}`)
+    Map(Box<Type>, Box<Type>),
+    /// Represents an interface type (e.g., `{name: string, age: number}`)
+    Interface(Vec<(String, Type)>),
+    /// Represents an enum type (e.g., `enum Color { Red, Green, Blue }`)
+    Enum(Vec<String>),
+    /// Represents a record type (e.g., `{ name: string, age: number }`)
+    Record(Vec<(String, Type)>),
+    /// Represents a trait type (e.g., `trait Printable { print(): void }`)
+    Trait(Vec<(String, Type)>),
+    /// Represents an array with a single element (A.K.A. a table with a single element)
+    MonoTable(Box<Type>), // Might add a "Wrapped" type and make this a Wrapped<Type>
+    /// Represents a map with a single element (A.K.A. a table with a single element)
+    MonoMap(Box<Type>, Box<Type>), // Might add a "Wrapped" type and make this a Wrapped<Type, Type>
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Number => write!(f, "number"),
+            Type::String => write!(f, "string"),
+            Type::Boolean => write!(f, "boolean"),
+            Type::Nil => write!(f, "nil"),
+            Type::Function(params, returns) => {
+                write!(
+                    f,
+                    "function({})",
+                    params
+                        .iter()
+                        .map(|param| param.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )?;
+                write!(
+                    f,
+                    " -> {}",
+                    returns
+                        .iter()
+                        .map(|return_type| return_type.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Type::Table => write!(f, "table"),
+            Type::Any => write!(f, "any"),
+            Type::Enum(variants) => write!(
+                f,
+                "enum {}",
+                variants
+                    .iter()
+                    .map(|variant| variant.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Type::Record(fields) => write!(
+                f,
+                "record {}",
+                fields
+                    .iter()
+                    .map(|(name, ty)| format!("{}: {}", name, ty))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Type::Trait(methods) => write!(
+                f,
+                "trait {}",
+                methods
+                    .iter()
+                    .map(|(name, ty)| format!("{}: {}", name, ty))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Type::MonoTable(element) => write!(f, "mono_table({})", element),
+            Type::MonoMap(key, value) => write!(f, "mono_map({}, {})", key, value),
+            _ => todo!("Implement type formatting for {:?}", self),
+        }
+    }
 }
 
 impl Type {
@@ -32,6 +115,22 @@ impl Type {
                 }
             }
         }
+    }
+
+    pub fn flatten_union(types: Vec<Type>) -> Vec<Type> {
+        let mut flattened = Vec::new();
+        for ty in types {
+            match ty {
+                Type::Union(inner) => {
+                    flattened.extend(Self::flatten_union(inner));
+                }
+                _ => flattened.push(ty),
+            }
+        }
+        // Remove duplicates
+        flattened.sort_by(|a, b| format!("{:?}", a).cmp(&format!("{:?}", b)));
+        flattened.dedup();
+        flattened
     }
 }
 

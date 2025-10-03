@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Keywords
@@ -52,7 +54,47 @@ pub enum Token {
     LAngle,
     RAngle,
 
+    Pipe, // | for union types
     Eof,
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Number(n) => write!(f, "{}", n),
+            Token::String(s) => write!(f, "\"{}\"", s),
+            Token::Ident(i) => write!(f, "{}", i),
+            Token::Plus => write!(f, "+"),
+            Token::Minus => write!(f, "-"),
+            Token::Star => write!(f, "*"),
+            Token::Slash => write!(f, "/"),
+            Token::Percent => write!(f, "%"),
+            Token::EqEq => write!(f, "=="),
+            Token::NotEq => write!(f, "!="),
+            Token::Lt => write!(f, "<"),
+            Token::Le => write!(f, "<="),
+            Token::Gt => write!(f, ">"),
+            Token::Ge => write!(f, ">="),
+            Token::Assign => write!(f, "="),
+            Token::Concat => write!(f, ".."),
+            Token::LParen => write!(f, "("),
+            Token::RParen => write!(f, ")"),
+            Token::LBrace => write!(f, "{{"),
+            Token::RBrace => write!(f, "}}"),
+            Token::LBracket => write!(f, "["),
+            Token::RBracket => write!(f, "]"),
+            Token::Comma => write!(f, ","),
+            Token::Dot => write!(f, "."),
+            Token::Colon => write!(f, ":"),
+            Token::Semicolon => write!(f, ";"),
+            Token::LAngle => write!(f, "<"),
+            Token::RAngle => write!(f, ">"),
+            Token::Pipe => write!(f, "|"),
+            Token::Eof => write!(f, "EOF"),
+            Token::Nil => write!(f, "nil"),
+            _ => todo!("Implement token formatting for {:?}", self),
+        }
+    }
 }
 
 pub struct Lexer {
@@ -86,6 +128,9 @@ impl Lexer {
         while let Some(c) = self.current() {
             if c.is_whitespace() {
                 self.advance();
+            } else if c == '-' && self.peek(1) == Some('-') {
+                // Found a comment, skip it
+                self.skip_comment();
             } else {
                 break;
             }
@@ -135,6 +180,12 @@ impl Lexer {
                 Token::Plus
             }
             Some('-') => {
+                // Check if this is a comment
+                if self.peek(1) == Some('-') {
+                    self.skip_comment();
+                    // After skipping comment, get next token
+                    return self.next_token();
+                }
                 self.advance();
                 Token::Minus
             }
@@ -150,10 +201,10 @@ impl Lexer {
                 self.advance();
                 Token::Percent
             }
-            // Some('|') => {
-            //     self.advance();
-            //     Token::Pipe
-            // }
+            Some('|') => {
+                self.advance();
+                Token::Pipe
+            }
             Some('(') => {
                 self.advance();
                 Token::LParen
@@ -349,6 +400,100 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::If);
         assert_eq!(lexer.next_token(), Token::Then);
         assert_eq!(lexer.next_token(), Token::End);
+    }
+
+    #[test]
+    fn test_single_line_comment() {
+        let input = "local x = 42 -- this is a comment\nlocal y = 10";
+        let mut lexer = Lexer::new(input);
+
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("x".to_string()));
+        assert_eq!(lexer.next_token(), Token::Assign);
+        assert_eq!(lexer.next_token(), Token::Number(42.0));
+        // Comment should be skipped
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("y".to_string()));
+    }
+
+    #[test]
+    fn test_block_comment() {
+        let input = "local x = 1 --[[ this is a block comment ]] local y = 2";
+        let mut lexer = Lexer::new(input);
+
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("x".to_string()));
+        assert_eq!(lexer.next_token(), Token::Assign);
+        assert_eq!(lexer.next_token(), Token::Number(1.0));
+        // Block comment should be skipped
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("y".to_string()));
+    }
+
+    #[test]
+    fn test_multiline_block_comment() {
+        let input = r#"local x = 1
+--[[
+This is a
+multi-line
+comment
+]]
+local y = 2"#;
+        let mut lexer = Lexer::new(input);
+
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("x".to_string()));
+        assert_eq!(lexer.next_token(), Token::Assign);
+        assert_eq!(lexer.next_token(), Token::Number(1.0));
+        // Multi-line block comment should be skipped
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("y".to_string()));
+    }
+
+    #[test]
+    fn test_comment_at_start() {
+        let input = "-- comment at start\nlocal x = 5";
+        let mut lexer = Lexer::new(input);
+
+        // Comment should be skipped automatically
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("x".to_string()));
+    }
+
+    #[test]
+    fn test_minus_vs_comment() {
+        let input = "5 - 3"; // Subtraction, not a comment
+        let mut lexer = Lexer::new(input);
+
+        assert_eq!(lexer.next_token(), Token::Number(5.0));
+        assert_eq!(lexer.next_token(), Token::Minus);
+        assert_eq!(lexer.next_token(), Token::Number(3.0));
+    }
+
+    #[test]
+    fn test_multiple_comments() {
+        let input = r#"
+-- First comment
+local x = 1
+-- Second comment
+local y = 2
+--[[ Block comment ]]
+local z = 3
+"#;
+        let mut lexer = Lexer::new(input);
+
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("x".to_string()));
+        assert_eq!(lexer.next_token(), Token::Assign);
+        assert_eq!(lexer.next_token(), Token::Number(1.0));
+
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("y".to_string()));
+        assert_eq!(lexer.next_token(), Token::Assign);
+        assert_eq!(lexer.next_token(), Token::Number(2.0));
+
+        assert_eq!(lexer.next_token(), Token::Local);
+        assert_eq!(lexer.next_token(), Token::Ident("z".to_string()));
     }
 }
 
