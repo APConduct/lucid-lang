@@ -19,7 +19,7 @@ impl CodeGen {
 
     fn emit_indent(&mut self) {
         for _ in 0..self.indent {
-            self.output.push_str("  ");
+            self.output.push_str("    ");
         }
     }
 
@@ -298,7 +298,7 @@ mod tests {
         codegen.gen_stmt(&ast);
         let expected = r#"
 function add(x, y)
-  return (x + y)
+    return (x + y)
 end"#;
         assert_eq!(codegen.output.trim(), expected.trim());
     }
@@ -331,9 +331,9 @@ end"#;
         let mut codegen = CodeGen::new();
         codegen.gen_stmt(&ast);
         let expected = r#"if (x > 0) then
-  print("positive")
+    print("positive")
 else
-  print("non-positive")
+    print("non-positive")
 end"#;
         assert_eq!(codegen.output.trim(), expected);
     }
