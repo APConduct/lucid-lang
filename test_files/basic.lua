@@ -17,3 +17,8 @@ local b = identity("hello")
 local sn = identity("world")
 local x = 42
 local y = nil
+function create_dog()
+    local dog = {"Buddy", 5, function()
+    end}
+    return dog
+end

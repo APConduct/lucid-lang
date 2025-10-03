@@ -49,12 +49,19 @@ impl Parser {
     }
 
     fn expect(&mut self, expected: Token) -> Result<(), String> {
+        let _span = tracing::span!(tracing::Level::INFO, "expect");
+        let _enter = _span.enter();
         let current = self.current().clone();
         if std::mem::discriminant(&current) == std::mem::discriminant(&expected) {
             self.advance();
             Ok(())
         } else {
-            Err(format!("Expected {:?}, got {:?}", expected, current))
+            Err(format!(
+                "Expected {:?}, got {:?}; next token: {:?}",
+                expected,
+                current,
+                self.peek(1)
+            ))
         }
     }
 
@@ -77,42 +84,51 @@ impl Parser {
             Token::Local => {
                 tracing::event!(tracing::Level::DEBUG, "Parsing local statement");
                 let stmt = self.parse_local()?;
-                tracing::event!(tracing::Level::DEBUG, "Parsed local statement");
+                tracing::event!(tracing::Level::DEBUG, "Parsed local statement: {:?}", stmt);
                 Ok(stmt)
             }
             Token::Function => {
                 tracing::event!(tracing::Level::DEBUG, "Parsing function statement");
                 let stmt = self.parse_function()?;
-                tracing::event!(tracing::Level::DEBUG, "Parsed function statement");
+                tracing::event!(
+                    tracing::Level::DEBUG,
+                    "Parsed function statement: {:?}",
+                    stmt
+                );
                 Ok(stmt)
             }
             Token::Interface => {
                 tracing::event!(tracing::Level::DEBUG, "Parsing interface statement");
                 let stmt = self.parse_interface()?;
-                tracing::event!(tracing::Level::DEBUG, "Parsed interface statement");
+                tracing::event!(
+                    tracing::Level::DEBUG,
+                    "Parsed interface statement: {:?}",
+                    stmt
+                );
                 Ok(stmt)
             }
             Token::If => {
                 tracing::event!(tracing::Level::DEBUG, "Parsing if statement");
                 let stmt = self.parse_if()?;
-                tracing::event!(tracing::Level::DEBUG, "Parsed if statement");
+                tracing::event!(tracing::Level::DEBUG, "Parsed if statement: {:?}", stmt);
                 Ok(stmt)
             }
             Token::While => {
                 tracing::event!(tracing::Level::DEBUG, "Parsing while statement");
                 let stmt = self.parse_while()?;
-                tracing::event!(tracing::Level::DEBUG, "Parsed while statement");
+                tracing::event!(tracing::Level::DEBUG, "Parsed while statement: {:?}", stmt);
                 Ok(stmt)
             }
             Token::Return => {
                 tracing::event!(tracing::Level::DEBUG, "Parsing return statement");
                 let stmt = self.parse_return()?;
-                tracing::event!(tracing::Level::DEBUG, "Parsed return statement");
+                tracing::event!(tracing::Level::DEBUG, "Parsed return statement: {:?}", stmt);
                 Ok(stmt)
             }
             _ => {
                 // Try to parse as expression statement or assignment
                 let expr = self.parse_expr()?;
+                tracing::event!(tracing::Level::DEBUG, "Parsed expression: {:?}", expr);
 
                 // Check if this is an assignment
                 if self.current() == &Token::Assign {
@@ -165,7 +181,7 @@ impl Parser {
                     None
                 };
 
-                tracing::event!(target: "parser", tracing::Level::INFO, "Parsed variable: {}", name);
+                tracing::event!(target: "parser", tracing::Level::INFO, "Parsed variable: {} as type {}", name, ty.as_ref().map_or("None".to_string(), |ty| ty.to_string()));
                 vars.push(TypedIdent { name, ty });
 
                 if self.current() == &Token::Comma {
@@ -507,7 +523,13 @@ impl Parser {
     fn parse_type(&mut self) -> Result<Type, String> {
         let _span = tracing::span!(Level::TRACE, "parse_type");
         let _enter = _span.enter();
-        let mut base_type = match self.current() {
+        let current_token = self.current();
+        tracing::trace!(
+            "Current token: {:?}, next token is {:?}",
+            current_token,
+            self.peek(1)
+        );
+        let mut base_type = match current_token {
             Token::Ident(type_name) => {
                 tracing::trace!("Parsing type: {}", type_name.clone());
                 let type_name = type_name.clone();
@@ -524,10 +546,46 @@ impl Parser {
                 self.advance();
                 Type::Boolean
             }
+            Token::Function => {
+                tracing::trace!("Parsing type: function");
+                tracing::event!(
+                    Level::TRACE,
+                    "current token: {}, next token: {}",
+                    self.current(),
+                    self.peek(1)
+                );
+                self.advance();
+                tracing::event!(
+                    Level::TRACE,
+                    "current token: {}, next token: {}",
+                    self.current(),
+                    self.peek(1)
+                );
+
+                if self.current() == &Token::LParen {
+                    let (prm, ret): (Vec<Type>, Vec<Type>) = (vec![], vec![]);
+                    loop {
+                        if self.current() == &Token::RParen {
+                            self.advance();
+                            break;
+                        }
+                        self.advance();
+                    }
+                    Type::Function(prm, ret)
+                } else {
+                    tracing::trace!("Parsing function type");
+                    Type::Function(vec![Type::Any], vec![Type::Any])
+                }
+            }
             _ => {
-                return Err(format!("Expected type name, got {}", self.current()));
+                return Err(format!(
+                    "Expected type name, got {}; next token: {}",
+                    self.current(),
+                    self.peek(1)
+                ));
             }
         };
+        tracing::event!(Level::DEBUG, "Base type initialized as {}", base_type);
 
         // Check for union type (|)
         if self.current() == &Token::Pipe {
@@ -746,6 +804,7 @@ impl Parser {
                 _expr
             );
         }
+
         let mut expr = _expr.expect("Failed to parse primary expression");
 
         loop {
@@ -835,25 +894,113 @@ impl Parser {
                 Ok(expr)
             }
             Token::LBrace => {
+                tracing::span!(tracing::Level::INFO, "Parsing table constructor");
                 // Table constructor
                 self.advance();
                 let mut fields = Vec::new();
 
-                while self.current() != &Token::RBrace {
-                    // TODO: Parse table fields properly (key-value pairs)
-                    tracing::warn!("Proper table fields parsing is not implemented yet");
-                    let value = self.parse_expr()?;
-                    fields.push(TableField { key: None, value });
+                if self.current() != &Token::RBrace {
+                    loop {
+                        // Check if this is a key-value pair (key = value) or just a value
+                        let first_expr = self.parse_expr()?;
 
-                    if self.current() == &Token::Comma {
-                        self.advance();
-                    } else {
-                        break;
+                        if self.current() == &Token::Assign {
+                            // This is a key-value pair
+                            self.advance();
+                            let value = self.parse_expr()?;
+                            fields.push(TableField {
+                                key: Some(first_expr),
+                                value,
+                            });
+                        } else {
+                            // This is just a value
+                            fields.push(TableField {
+                                key: None,
+                                value: first_expr,
+                            });
+                        }
+
+                        if self.current() == &Token::Comma {
+                            self.advance();
+                        } else {
+                            break;
+                        }
                     }
                 }
 
                 self.expect(Token::RBrace)?;
                 Ok(Expr::Table(fields))
+            }
+            Token::Function => {
+                let generic_params = self.parse_generic_params()?;
+
+                self.advance();
+
+                self.expect(Token::LParen)?;
+
+                let mut params = Vec::new();
+                if self.current() != &Token::RParen {
+                    loop {
+                        if let Token::Ident(param_name) = self.current() {
+                            let param_name = param_name.clone();
+                            self.advance();
+
+                            // Expect type annotation for parameters
+                            self.expect(Token::Colon)?;
+                            let ty = Some(self.parse_type()?);
+
+                            params.push(TypedIdent {
+                                name: param_name,
+                                ty,
+                            });
+
+                            if self.current() == &Token::Comma {
+                                self.advance();
+                            } else {
+                                break;
+                            }
+                        } else {
+                            return Err("Expected parameter name".to_string());
+                        }
+                    }
+                }
+
+                self.expect(Token::RParen)?;
+
+                // Parse return type annotations (can be multiple)
+                let return_types = if self.current() == &Token::Colon {
+                    self.advance();
+                    let mut types = vec![self.parse_type()?];
+                    while self.current() == &Token::Comma {
+                        self.advance();
+                        types.push(self.parse_type()?);
+                    }
+                    types
+                } else {
+                    Vec::new()
+                };
+
+                // Parse function body
+                let mut body = Vec::new();
+                while self.current() != &Token::End {
+                    body.push(self.parse_stmt()?);
+                }
+
+                self.expect(Token::End)?;
+
+                // // Parse function attributes (can be multiple)
+                // let mut attributes = Vec::new();
+                // while self.current() == &Token::At {
+                //     self.advance();
+                //     attributes.push(self.parse_attribute()?);
+                // }
+
+                Ok(Expr::Function {
+                    generic_params,
+                    params,
+                    return_types,
+                    body,
+                })
             }
             tok => Err(format!("Unexpected token in expression: {:?}", tok)),
         }

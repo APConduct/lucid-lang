@@ -93,6 +93,8 @@ impl Display for Token {
             Token::Pipe => write!(f, "|"),
             Token::Eof => write!(f, "EOF"),
             Token::Nil => write!(f, "nil"),
+            Token::Function => write!(f, "function"),
+            Token::End => write!(f, "end"),
             _ => todo!("Implement token formatting for {:?}", self),
         }
     }

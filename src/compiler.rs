@@ -234,4 +234,26 @@ end
         let mut compiler = Compiler::new();
         assert!(compiler.compile(source).is_ok());
     }
+
+    #[test]
+    fn test_interface_with_function() {
+        let source = r#"
+  interface Animal
+      name: string
+      age: number
+      speak: function
+  end
+
+  function create_dog(): Animal
+      local dog = {
+          name = "Buddy",
+          age = 5,
+          speak = function() end
+      }
+      return dog
+  end
+  "#;
+        let mut compiler = Compiler::new();
+        assert!(compiler.compile(source).is_ok());
+    }
 }

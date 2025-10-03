@@ -29,3 +29,18 @@ interface Person
     name: string
     age: number
 end
+
+interface Animal
+    name: string
+    age: number
+    speak: function
+end
+
+function create_dog(): Animal
+    local dog = {
+        name = "Buddy",
+        age = 5,
+        speak = function() end
+    }
+    return dog
+end
