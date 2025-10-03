@@ -1,0 +1,92 @@
+-- Test file for interfaces and table literals
+
+-- Simple interface
+interface Person
+    name: string
+    age: number
+end
+
+-- Interface with function type
+interface Animal
+    name: string
+    age: number
+    speak: function
+end
+
+-- Interface with multiple methods
+interface Calculator
+    add: function
+    subtract: function
+    multiply: function
+end
+
+-- Creating objects that match interfaces
+function create_person(name: string, age: number): Person
+    local person = {
+        name = name,
+        age = age
+    }
+    return person
+end
+
+function create_dog(): Animal
+    local dog = {
+        name = "Buddy",
+        age = 5,
+        speak = function()
+            -- Dogs bark
+        end
+    }
+    return dog
+end
+
+function create_cat(name: string): Animal
+    return {
+        name = name,
+        age = 3,
+        speak = function()
+            -- Cats meow
+        end
+    }
+end
+
+-- Using the functions
+local john: Person = create_person("John", 30)
+local spot: Animal = create_dog()
+local whiskers: Animal = create_cat("Whiskers")
+
+-- Nested tables with identifier keys
+local complex_object = {
+    person = {
+        name = "Alice",
+        age = 25
+    },
+    metadata = {
+        created = "2024-01-01",
+        version = 1
+    }
+}
+
+-- Mixed key types
+local mixed = {
+    simple = "value",
+    ["complex key"] = "another value",
+    nested = {
+        data = 42
+    }
+}
+
+-- Interface with union types
+interface Config
+    host: string
+    port: number
+    ssl: boolean | nil
+end
+
+function get_config(): Config
+    return {
+        host = "localhost",
+        port = 8080,
+        ssl = nil
+    }
+end

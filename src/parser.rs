@@ -901,23 +901,36 @@ impl Parser {
 
                 if self.current() != &Token::RBrace {
                     loop {
-                        // Check if this is a key-value pair (key = value) or just a value
-                        let first_expr = self.parse_expr()?;
-
-                        if self.current() == &Token::Assign {
-                            // This is a key-value pair
+                        // Check for bracket notation: [expr] = value
+                        if self.current() == &Token::LBracket {
                             self.advance();
+                            let key_expr = self.parse_expr()?;
+                            self.expect(Token::RBracket)?;
+                            self.expect(Token::Assign)?;
                             let value = self.parse_expr()?;
                             fields.push(TableField {
-                                key: Some(first_expr),
+                                key: Some(key_expr),
                                 value,
                             });
                         } else {
-                            // This is just a value
-                            fields.push(TableField {
-                                key: None,
-                                value: first_expr,
-                            });
+                            // Check if this is a key-value pair (key = value) or just a value
+                            let first_expr = self.parse_expr()?;
+
+                            if self.current() == &Token::Assign {
+                                // This is a key-value pair
+                                self.advance();
+                                let value = self.parse_expr()?;
+                                fields.push(TableField {
+                                    key: Some(first_expr),
+                                    value,
+                                });
+                            } else {
+                                // This is just a value
+                                fields.push(TableField {
+                                    key: None,
+                                    value: first_expr,
+                                });
+                            }
                         }
 
                         if self.current() == &Token::Comma {

@@ -213,9 +213,19 @@ impl CodeGen {
                         self.emit(", ");
                     }
                     if let Some(key) = &field.key {
-                        self.emit("[");
-                        self.gen_expr(key);
-                        self.emit("] = ");
+                        // Use shorthand syntax for simple identifiers: name = value
+                        // Use bracket syntax for expressions: [expr] = value
+                        match key {
+                            Expr::Ident(name) => {
+                                self.emit(name);
+                                self.emit(" = ");
+                            }
+                            _ => {
+                                self.emit("[");
+                                self.gen_expr(key);
+                                self.emit("] = ");
+                            }
+                        }
                     }
                     self.gen_expr(&field.value);
                 }
@@ -415,6 +425,50 @@ end"#;
         let mut codegen = CodeGen::new();
         codegen.gen_stmt(&ast);
         let expected = r#"{["a"] = 1, ["b"] = 2}"#;
+        assert_eq!(codegen.output.trim(), expected);
+    }
+
+    #[test]
+    fn test_codegen_table_with_identifier_keys() {
+        // {name = "John", age = 30}
+        use crate::ast::{Expr, Stmt, TableField};
+
+        let ast = Stmt::Expr(Expr::Table(vec![
+            TableField {
+                key: Some(Expr::Ident("name".to_string())),
+                value: Expr::String("John".to_string()),
+            },
+            TableField {
+                key: Some(Expr::Ident("age".to_string())),
+                value: Expr::Number(30.0),
+            },
+        ]));
+
+        let mut codegen = CodeGen::new();
+        codegen.gen_stmt(&ast);
+        let expected = r#"{name = "John", age = 30}"#;
+        assert_eq!(codegen.output.trim(), expected);
+    }
+
+    #[test]
+    fn test_codegen_table_with_bracket_notation() {
+        // {simple = "value", ["complex key"] = "another"}
+        use crate::ast::{Expr, Stmt, TableField};
+
+        let ast = Stmt::Expr(Expr::Table(vec![
+            TableField {
+                key: Some(Expr::Ident("simple".to_string())),
+                value: Expr::String("value".to_string()),
+            },
+            TableField {
+                key: Some(Expr::String("complex key".to_string())),
+                value: Expr::String("another".to_string()),
+            },
+        ]));
+
+        let mut codegen = CodeGen::new();
+        codegen.gen_stmt(&ast);
+        let expected = r#"{simple = "value", ["complex key"] = "another"}"#;
         assert_eq!(codegen.output.trim(), expected);
     }
 

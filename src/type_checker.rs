@@ -378,7 +378,12 @@ impl TypeChecker {
                 // For now, just check field expressions
                 for field in fields {
                     if let Some(key) = &field.key {
-                        self.check_expr(key);
+                        // Only check the key if it's not a simple identifier used as a literal field name
+                        // In Lua, {name = "value"} has name as a literal key, not a variable reference
+                        // But {[expr] = "value"} needs the expression checked
+                        if !matches!(key, Expr::Ident(_)) {
+                            self.check_expr(key);
+                        }
                     }
                     self.check_expr(&field.value);
                 }
