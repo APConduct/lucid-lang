@@ -1,0 +1,29 @@
+-- This is a single-line comment
+local x: number = 42
+
+--[[
+This is a multi-line comment
+It can span multiple lines
+and contain all sorts of text
+]]
+
+local y: string = "hello"
+
+-- Another comment before a function
+function add(a: number, b: number): number
+    -- Comment inside function
+    return a + b -- inline comment
+end
+
+--[[ Block comment on one line ]]
+
+local result: number = add(x, 10)
+
+-- Test union types with comments
+local value: string | number = 100 -- This is a union type
+
+--[[
+Multi-line comment
+with union types
+]]
+local optional: number | nil = nil
