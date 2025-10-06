@@ -5,9 +5,9 @@ use crate::{
 
 use super::ast::InterfaceDecl;
 
-use tracing::Level;
 use tracing::event;
 use tracing::span;
+use tracing::Level;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -33,11 +33,6 @@ impl Parser {
         self.tokens.get(self.pos).unwrap_or(&Token::Eof)
     }
 
-    fn tok_ref_wrap<'a>(&self, tok: &'a Token) -> &'a Token {
-        tracing::trace!("Wrapping token {:?}", tok);
-        tok
-    }
-
     pub fn peek(&self, offset: usize) -> &Token {
         self.tokens.get(self.pos + offset).unwrap_or(&Token::Eof)
     }
@@ -46,6 +41,12 @@ impl Parser {
         let tok = self.current().clone();
         self.pos += 1;
         tok
+    }
+
+    fn error(&self, message: String) -> String {
+        // TODO: enhance this with location info
+        tracing::error!("{}", message);
+        message
     }
 
     fn expect(&mut self, expected: Token) -> Result<(), String> {

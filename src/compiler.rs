@@ -10,21 +10,38 @@ impl Compiler {
     }
 
     pub fn compile(&mut self, source: &str) -> Result<String, String> {
+        let _span = tracing::span!(tracing::Level::INFO, "compile", source = source);
+        let _guard = _span.enter();
+        tracing::info!("Starting compilation");
+
         // Lex and parse
+        tracing::debug!("Lexing source");
         let lexer = Lexer::new(source);
+        tracing::debug!("Parsing tokens");
         let mut parser = Parser::new(lexer);
-        let program = parser.parse_program()?;
+        let program = parser.parse_program().map_err(|e| {
+            tracing::error!("Parse error: {}", e);
+            format!("Parse error: {}", e)
+        })?;
+
+        tracing::debug!("Parsed {} statements", program.statements.len());
 
         // Type check AST
+        tracing::debug!("Type checking AST");
         let mut type_checker = TypeChecker::new();
-        type_checker
-            .check_program(&program)
-            .map_err(|errors| errors.join("\n"))?;
+        if let Err(errors) = type_checker.check_program(&program) {
+            tracing::error!("Type checking failed with {} errors", errors.len());
+            return Err(format!("Type errors:\n{}", errors.join("\n")));
+        }
+
+        tracing::debug!("Type checking passed");
 
         // Generate Lua code
+        tracing::debug!("Generating Lua code");
         let mut codegen = CodeGen::new();
         let lua_code = codegen.generate(&program);
 
+        tracing::info!("Compilation successful");
         Ok(lua_code)
     }
 }
