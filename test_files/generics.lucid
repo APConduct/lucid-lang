@@ -1,0 +1,16 @@
+local function getOrDefault<T>(value: T | nil, default: T): T
+    return value
+end
+
+local x: number = getOrDefault(42, 0)
+local y: string = getOrDefault(nil, "default")
+
+interface Container<T>
+    value: T
+    isEmpty: boolean
+end
+
+interface Map<K, V>
+    key: K
+    value: V
+end

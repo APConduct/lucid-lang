@@ -1,0 +1,5 @@
+type Result<T> = T | nil
+type Pair<T, U> = table  -- Could be expanded later
+
+local success: Result<number> = 42
+local failure: Result<string> = nil

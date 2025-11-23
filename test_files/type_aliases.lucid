@@ -1,0 +1,5 @@
+type UserId = number
+type UserName = string
+
+local id: UserId = 123
+local name: UserName = "Alice"

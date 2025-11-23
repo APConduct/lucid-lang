@@ -36,7 +36,7 @@ interface Animal
     speak: function
 end
 
-function create_dog(): Animal
+local function create_dog(): Animal
     local dog = {
         name = "Buddy",
         age = 5,

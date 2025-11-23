@@ -38,6 +38,7 @@ impl Parser {
     }
 
     fn advance(&mut self) -> Token {
+        tracing::event!(Level::TRACE, "advance");
         let tok = self.current().clone();
         self.pos += 1;
         tok
@@ -52,11 +53,20 @@ impl Parser {
     fn expect(&mut self, expected: Token) -> Result<(), String> {
         let _span = tracing::span!(tracing::Level::INFO, "expect");
         let _enter = _span.enter();
+        tracing::event!(Level::TRACE, "expecting {}", expected);
         let current = self.current().clone();
         if std::mem::discriminant(&current) == std::mem::discriminant(&expected) {
             self.advance();
+            tracing::event!(Level::TRACE, "matched {}", expected);
             Ok(())
         } else {
+            tracing::event!(
+                Level::ERROR,
+                "Expected {:?}, got {:?}; next token: {:?}",
+                expected,
+                current,
+                self.peek(1)
+            );
             Err(format!(
                 "Expected {:?}, got {:?}; next token: {:?}",
                 expected,
@@ -74,6 +84,7 @@ impl Parser {
         while self.current() != &Token::Eof {
             statements.push(self.parse_stmt()?);
         }
+        tracing::event!(tracing::Level::DEBUG, "Parsed program");
         Ok(Program { statements })
     }
 

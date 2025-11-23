@@ -10,7 +10,7 @@ impl Compiler {
     }
 
     pub fn compile(&mut self, source: &str) -> Result<String, String> {
-        let _span = tracing::span!(tracing::Level::INFO, "compile", source = source);
+        let _span = tracing::span!(tracing::Level::DEBUG, "compile", source = source);
         let _guard = _span.enter();
         tracing::info!("Starting compilation");
 

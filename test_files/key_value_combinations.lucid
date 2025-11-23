@@ -1,0 +1,2 @@
+type Cache<K, V> = {K: V}
+local cache: Cache<string, boolean> = {}

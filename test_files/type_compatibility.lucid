@@ -1,0 +1,2 @@
+function takeTable(t: table): nil end
+takeTable({1, 2, 3})  -- ✓ array is a table

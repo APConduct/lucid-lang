@@ -1,0 +1,2 @@
+local ages: {string: number} = {alice = 30}
+local age: number = ages["alice"]  -- ✓ correct key type

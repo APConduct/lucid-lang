@@ -1,0 +1,2 @@
+type Matrix = {{number}}
+local grid: Matrix = {{1, 2}, {3, 4}}

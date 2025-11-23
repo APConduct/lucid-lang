@@ -1,0 +1,2 @@
+local nums: {number} = {1, 2, 3}
+local x: number = nums[1]  -- ✓ type checks

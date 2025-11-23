@@ -1,0 +1,7 @@
+type ID = number | string
+type Optional<T> = T | nil
+type Callback<T> = function
+
+function process<T>(value: Optional<T>, id: ID): T
+    return value
+end

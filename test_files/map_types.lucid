@@ -1,0 +1,4 @@
+local ages: {string: number} = {
+    alice = 30,
+    bob = 25
+}

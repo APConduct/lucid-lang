@@ -1,0 +1,5 @@
+type StringOrNumber = string | number
+type Maybe<T> = T | nil
+
+local x: StringOrNumber = 42
+local y: Maybe<string> = nil
