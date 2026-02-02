@@ -21,6 +21,9 @@ fn main() {
     }
 
     let input_path = PathBuf::from(&args[1]);
+
+    tracing::info!("Compiling: {}", input_path.display());
+
     let source = fs::read_to_string(&input_path).expect("Failed to read input file");
 
     let mut compiler = Compiler::new();

@@ -1,10 +1,14 @@
 use crate::{
-    ast::{BinOp, Expr, GenericParam, InterfaceField, Program, Stmt, TableField, Type, TypedIdent},
+    ast::{
+        BinOp, Expr, GenericParam, InterfaceField, Program, Stmt, TableField, Type, TypeAlias,
+        TypedIdent,
+    },
     lexer::{Lexer, Token},
 };
 
 use super::ast::InterfaceDecl;
 
+use clap::builder::Str;
 use tracing::event;
 use tracing::span;
 use tracing::Level;
@@ -12,10 +16,12 @@ use tracing::Level;
 pub struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+    source_lines: Vec<String>,
 }
 
 impl Parser {
-    pub fn new(mut lexer: Lexer) -> Self {
+    pub fn new(source: &str) -> Self {
+        let mut lexer = Lexer::new(source);
         let mut tokens = Vec::new();
         loop {
             let tok = lexer.next_token();
@@ -26,7 +32,12 @@ impl Parser {
                 break;
             }
         }
-        Self { tokens, pos: 0 }
+        let source_lines: Vec<String> = source.lines().map(|s| s.to_string()).collect();
+        Self {
+            tokens,
+            pos: 0,
+            source_lines,
+        }
     }
 
     fn current(&self) -> &Token {
@@ -54,6 +65,7 @@ impl Parser {
         let _span = tracing::span!(tracing::Level::INFO, "expect");
         let _enter = _span.enter();
         tracing::event!(Level::TRACE, "expecting {}", expected);
+
         let current = self.current().clone();
         if std::mem::discriminant(&current) == std::mem::discriminant(&expected) {
             self.advance();
@@ -80,6 +92,7 @@ impl Parser {
         let _span = tracing::span!(tracing::Level::DEBUG, "parse_program");
         tracing::event!(tracing::Level::INFO, "Parsing program");
         let _enter = _span.enter();
+
         let mut statements = Vec::new();
         while self.current() != &Token::Eof {
             statements.push(self.parse_stmt()?);
@@ -92,6 +105,7 @@ impl Parser {
         let _span = tracing::span!(tracing::Level::INFO, "parse_stmt");
         tracing::event!(tracing::Level::DEBUG, "Parsing statement");
         let _enter = _span.enter();
+
         match self.current() {
             Token::Local => {
                 tracing::event!(tracing::Level::DEBUG, "Parsing local statement");
@@ -117,6 +131,12 @@ impl Parser {
                     "Parsed interface statement: {:?}",
                     stmt
                 );
+                Ok(stmt)
+            }
+            Token::Type => {
+                tracing::event!(tracing::Level::DEBUG, "Parsing type alias statement");
+                let stmt = self.parse_type_alias()?;
+                tracing::event!(tracing::Level::DEBUG, "Parsed type alias statement");
                 Ok(stmt)
             }
             Token::If => {
@@ -411,6 +431,32 @@ impl Parser {
         })
     }
 
+    fn parse_type_alias(&mut self) -> Result<Stmt, String> {
+        let _span = tracing::span!(tracing::Level::TRACE, "parse_type_alias");
+        let _enter = _span.enter();
+        self.expect(Token::Type)?;
+
+        let name = if let Token::Ident(n) = self.current() {
+            let n = n.clone();
+            self.advance();
+            n
+        } else {
+            return Err("Expected type alias name".to_string());
+        };
+
+        let generic_params = self.parse_generic_params()?;
+
+        self.expect(Token::Assign)?;
+
+        let target = self.parse_type()?;
+
+        Ok(Stmt::TypeAlias(TypeAlias {
+            name,
+            generic_params,
+            target,
+        }))
+    }
+
     fn parse_if(&mut self) -> Result<Stmt, String> {
         let _span = tracing::span!(tracing::Level::TRACE, "parse_if");
         let _enter = _span.enter();
@@ -541,6 +587,7 @@ impl Parser {
             current_token,
             self.peek(1)
         );
+
         let mut base_type = match current_token {
             Token::Ident(type_name) => {
                 tracing::trace!("Parsing type: {}", type_name.clone());
@@ -957,9 +1004,9 @@ impl Parser {
                 Ok(Expr::Table(fields))
             }
             Token::Function => {
-                let generic_params = self.parse_generic_params()?;
-
                 self.advance();
+
+                let generic_params = self.parse_generic_params()?;
 
                 self.expect(Token::LParen)?;
 
@@ -970,9 +1017,12 @@ impl Parser {
                             let param_name = param_name.clone();
                             self.advance();
 
-                            // Expect type annotation for parameters
-                            self.expect(Token::Colon)?;
-                            let ty = Some(self.parse_type()?);
+                            let ty = if self.current() == &Token::Colon {
+                                self.advance();
+                                Some(self.parse_type()?)
+                            } else {
+                                None
+                            };
 
                             params.push(TypedIdent {
                                 name: param_name,
@@ -1013,13 +1063,6 @@ impl Parser {
 
                 self.expect(Token::End)?;
 
-                // // Parse function attributes (can be multiple)
-                // let mut attributes = Vec::new();
-                // while self.current() == &Token::At {
-                //     self.advance();
-                //     attributes.push(self.parse_attribute()?);
-                // }
-
                 Ok(Expr::Function {
                     generic_params,
                     params,
@@ -1039,8 +1082,7 @@ mod tests {
     #[test]
     fn test_parse_expression() {
         let input = "1 + 2";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(input);
 
         let expr = parser.parse_expr().unwrap();
         let expected = Expr::BinOp {
@@ -1059,8 +1101,7 @@ mod tests {
     #[test]
     fn test_parse_table() {
         let input = "{1, 2, 3}";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(input);
 
         let expr = parser.parse_expr().unwrap();
         let expected = Expr::Table(vec![
@@ -1089,8 +1130,7 @@ mod tests {
     #[ignore = "key/value pairs are not supported yet"]
     fn test_parse_table_with_keys() {
         let input = "{a = 1, b = 2, c = 3}";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(input);
 
         let expr = parser.parse_expr().unwrap();
         let expected = Expr::Table(vec![

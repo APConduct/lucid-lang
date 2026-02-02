@@ -1,13 +1,17 @@
 use std::collections::HashMap;
 
-use crate::ast::{BinOp, Expr, InterfaceDecl, Program, Stmt, Type};
+use clap::builder::Str;
+
+use crate::ast::{BinOp, Expr, InterfaceDecl, Program, Stmt, Type, TypeAlias};
 
 #[derive(Debug, Clone)]
 pub struct TypeChecker {
     scopes: Vec<HashMap<String, Type>>,
     generic_scopes: Vec<HashMap<String, Type>>,
     interfaces: HashMap<String, InterfaceDecl>,
+    type_aliases: HashMap<String, TypeAlias>,
     errors: Vec<String>,
+    current_function: Option<String>,
 }
 
 impl TypeChecker {
@@ -16,7 +20,9 @@ impl TypeChecker {
             scopes: vec![HashMap::new()],         // Global scope
             generic_scopes: vec![HashMap::new()], // Global generic scope
             interfaces: HashMap::new(),           // Global interface scope
+            type_aliases: HashMap::new(),
             errors: Vec::new(),
+            current_function: None,
         }
     }
 
@@ -67,7 +73,12 @@ impl TypeChecker {
     }
 
     fn error(&mut self, msg: String) {
-        self.errors.push(msg);
+        tracing::error!("{}", msg);
+        if let Some(func) = &self.current_function {
+            self.errors.push(format!("In function '{}': {}", func, msg));
+        } else {
+            self.errors.push(msg);
+        }
     }
 
     pub fn check_program(&mut self, program: &Program) -> Result<(), Vec<String>> {
@@ -85,6 +96,8 @@ impl TypeChecker {
     fn check_stmt(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::InterfaceDecl(interface) => {
+                tracing::debug!("Registering interface: {}", interface.name);
+
                 // Register interface
                 self.interfaces
                     .insert(interface.name.clone(), interface.clone());
@@ -163,6 +176,8 @@ impl TypeChecker {
                 // Declare the function in current scope
                 self.declare(name.clone(), func_type);
 
+                let prev_func = self.current_function.clone();
+
                 // Check function body in new scope
                 self.push_scope();
                 self.pop_generic_scope();
@@ -185,6 +200,8 @@ impl TypeChecker {
 
                 self.pop_generic_scope();
                 self.pop_scope();
+
+                self.current_function = prev_func;
             }
 
             Stmt::If {
@@ -231,6 +248,21 @@ impl TypeChecker {
 
             Stmt::Expr(expr) => {
                 self.check_expr(expr);
+            }
+
+            Stmt::TypeAlias(alias) => {
+                tracing::debug!("Registering type alias: {}", alias.name);
+
+                self.type_aliases.insert(alias.name.clone(), alias.clone());
+
+                self.push_generic_scope();
+                for generic_param in &alias.generic_params {
+                    self.declare_generic(generic_param.name.clone());
+                }
+
+                let _ = &alias.target;
+
+                self.pop_generic_scope();
             }
         }
     }
@@ -457,7 +489,11 @@ impl TypeChecker {
     }
 
     fn is_numeric(&self, ty: &Type) -> bool {
-        matches!(ty, Type::Number | Type::Any)
+        match ty {
+            Type::Number | Type::Any => true,
+            Type::Union(types) => types.iter().all(|t| self.is_numeric(t)),
+            _ => false,
+        }
     }
 
     pub fn is_string_or_number(&self, ty: &Type) -> bool {

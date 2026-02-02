@@ -1,12 +1,14 @@
 use crate::{codegen::CodeGen, lexer::Lexer, parser::Parser, type_checker::TypeChecker};
 
 pub struct Compiler {
-    // Future: Add type checker, symbol table, etc.
+    source: String,
 }
 
 impl Compiler {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            source: String::new(),
+        }
     }
 
     pub fn compile(&mut self, source: &str) -> Result<String, String> {
@@ -14,11 +16,12 @@ impl Compiler {
         let _guard = _span.enter();
         tracing::info!("Starting compilation");
 
+        self.source = self.source.to_string();
+
         // Lex and parse
         tracing::debug!("Lexing source");
-        let lexer = Lexer::new(source);
         tracing::debug!("Parsing tokens");
-        let mut parser = Parser::new(lexer);
+        let mut parser = Parser::new(source);
         let program = parser.parse_program().map_err(|e| {
             tracing::error!("Parse error: {}", e);
             format!("Parse error: {}", e)

@@ -17,23 +17,24 @@ pub mod source {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CompileError {
-    pub message: String,
-    pub location: source::Location,
-    pub source_line: String,
-}
-
-impl CompileError {
-    pub fn format(&self) -> String {
-        format!(
-            "Error at line {}, column {}:\n{}\n{}\n{}^\n{}",
-            self.location.line,
-            self.location.column,
-            self.source_line,
-            " ".repeat(self.location.column.saturating_sub(1)),
-            "",
-            self.message
-        )
+pub mod compile {
+    #[derive(Debug, Clone)]
+    pub struct Error {
+        pub message: String,
+        pub location: super::source::Location,
+        pub source_line: String,
+    }
+    impl Error {
+        pub fn format(&self) -> String {
+            format!(
+                "Error at line {}, column {}:\n{}\n{}\n{}^\n{}",
+                self.location.line,
+                self.location.column,
+                self.source_line,
+                " ".repeat(self.location.column.saturating_sub(1)),
+                "",
+                self.message
+            )
+        }
     }
 }

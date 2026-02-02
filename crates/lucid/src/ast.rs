@@ -197,6 +197,13 @@ pub struct RecordDecl {
 }
 
 #[derive(Debug, Clone)]
+pub struct TypeAlias {
+    pub name: String,
+    pub generic_params: Vec<GenericParam>,
+    pub target: Type,
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
     Number(f64),
     String(String),
@@ -267,6 +274,7 @@ pub enum Stmt {
         body: Vec<Stmt>,
     },
     InterfaceDecl(InterfaceDecl),
+    TypeAlias(TypeAlias),
     If {
         condition: Expr,
         then_block: Vec<Stmt>,

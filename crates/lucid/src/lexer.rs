@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::error::source;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Keywords
@@ -19,6 +21,8 @@ pub enum Token {
     False,
     Nil,
     Interface,
+    For,
+    // TODO: add GoTo token and const syntax
 
     // Literals
     Number(f64),
@@ -56,6 +60,8 @@ pub enum Token {
     RAngle,
 
     Pipe, // | for union types
+
+    Type,
     Eof,
 }
 
@@ -103,6 +109,8 @@ impl Display for Token {
 pub struct Lexer {
     input: Vec<char>,
     pos: usize,
+    line: usize,
+    column: usize,
 }
 
 impl Lexer {
@@ -110,6 +118,8 @@ impl Lexer {
         Self {
             input: input.chars().collect(),
             pos: 0,
+            line: 1,
+            column: 1,
         }
     }
 
@@ -123,8 +133,20 @@ impl Lexer {
 
     fn advance(&mut self) -> Option<char> {
         let c = self.current();
-        self.pos += 1;
+        if let Some(ch) = c {
+            self.pos += 1;
+            if ch == '\n' {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
+        }
         c
+    }
+
+    pub fn location(&self) -> source::Location {
+        source::Location::new(self.line, self.column, self.pos)
     }
 
     fn skip_whitespace(&mut self) {
@@ -334,6 +356,7 @@ impl Lexer {
             "false" => Token::False,
             "nil" => Token::Nil,
             "interface" => Token::Interface,
+            "type" => Token::Type,
             _ => Token::Ident(ident),
         }
     }
