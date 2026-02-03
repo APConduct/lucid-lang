@@ -8,9 +8,6 @@ use crate::{
 
 use super::ast::InterfaceDecl;
 
-use clap::builder::Str;
-use tracing::event;
-use tracing::span;
 use tracing::Level;
 
 pub struct Parser {

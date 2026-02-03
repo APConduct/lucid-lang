@@ -1,4 +1,4 @@
-use crate::{codegen::CodeGen, lexer::Lexer, parser::Parser, type_checker::TypeChecker};
+use crate::{codegen::CodeGen, parser::Parser, type_checker::TypeChecker};
 
 pub struct Compiler {
     source: String,

@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use clap::builder::Str;
-
 use crate::ast::{BinOp, Expr, InterfaceDecl, Program, Stmt, Type, TypeAlias};
 
 #[derive(Debug, Clone)]
