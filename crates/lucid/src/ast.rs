@@ -22,6 +22,8 @@ pub enum Type {
     Map(Box<Type>, Box<Type>),
     /// Represents an interface type (e.g., `{name: string, age: number}`)
     Interface(String),
+    /// Array type: {T}
+    Array(Box<Type>),
     /// Represents an enum type (e.g., `enum Color { Red, Green, Blue }`)
     Enum(String),
     /// Represents a record type (e.g., `{ name: string, age: number }`)
@@ -90,6 +92,7 @@ impl Display for Type {
             Type::Trait(name) => write!(f, "trait {}", name),
             Type::MonoTable(element) => write!(f, "mono_table({})", element),
             Type::MonoMap(key, value) => write!(f, "mono_map({}, {})", key, value),
+            Type::Array(element) => write!(f, "array({})", element),
         }
     }
 }
