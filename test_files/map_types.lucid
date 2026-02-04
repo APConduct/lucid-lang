@@ -2,3 +2,8 @@ local ages: {string: number} = {
     alice = 30,
     bob = 25
 }
+
+local scores: {number: number} = {}
+
+type Cache<K, V> = {K: V}
+local cache: Cache<string, boolean> = {}

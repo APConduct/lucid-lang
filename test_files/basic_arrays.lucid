@@ -1,0 +1,2 @@
+local numbers: {number} = {1, 2, 3}
+local strings: {string} = {"a", "b", "c"}
