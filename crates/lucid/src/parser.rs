@@ -8,6 +8,7 @@ use crate::{
 
 use super::ast::InterfaceDecl;
 
+use clap::builder::Str;
 use tracing::Level;
 
 pub struct Parser {
@@ -16,7 +17,30 @@ pub struct Parser {
     source_lines: Vec<String>,
 }
 
+pub struct Error {
+    pub message: String,
+}
+
 impl Parser {
+    pub fn from(mut l: Lexer, source: &str) -> Self {
+        let mut tokens = Vec::new();
+        loop {
+            let tok = l.next_token();
+            tracing::trace!("Wrapping token {:?}", tok);
+            let is_eof = tok == Token::Eof;
+            tokens.push(tok);
+            if is_eof {
+                break;
+            }
+        }
+        let source_lines: Vec<String> = source.lines().map(|s| s.to_string()).collect();
+        Self {
+            tokens,
+            pos: 0,
+            source_lines,
+        }
+    }
+
     pub fn new(source: &str) -> Self {
         let mut lexer = Lexer::new(source);
         let mut tokens = Vec::new();
