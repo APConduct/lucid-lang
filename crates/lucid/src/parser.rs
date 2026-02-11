@@ -602,14 +602,49 @@ impl Parser {
     fn parse_type(&mut self) -> Result<Type, String> {
         let _span = tracing::span!(Level::TRACE, "parse_type");
         let _enter = _span.enter();
-        let current_token = self.current();
+        let current_token = self.current().clone();
         tracing::trace!(
             "Current token: {:?}, next token is {:?}",
             current_token,
             self.peek(1)
         );
 
-        let mut base_type = self.parse_base_type(&current_token)?;
+        let mut base_type = if self.current() == &Token::LBrace {
+            self.advance();
+
+            let first_type = if let Token::Ident(type_name) = self.current() {
+                let type_name = type_name.clone();
+                self.advance();
+                Type::from_str(&type_name).ok_or_else(|| format!("Unknown type: {}", type_name))?
+            } else {
+                return Err("Expected type after '{'".to_string());
+            };
+
+            if self.current() == &Token::Colon {
+                self.advance();
+                let value_type = if let Token::Ident(type_name) = self.current() {
+                    let type_name = type_name.clone();
+                    self.advance();
+                    Type::from_str(&type_name)
+                        .ok_or_else(|| format!("Unknown type: {}", type_name))?
+                } else {
+                    return Err("Expected value type after ':'".to_string());
+                };
+
+                self.expect(Token::RBrace)?;
+                Type::Map(Box::new(first_type), Box::new(value_type))
+            } else {
+                self.expect(Token::RBrace)?;
+                Type::Array(Box::new(first_type))
+            }
+        } else if let Token::Ident(type_name) = self.current() {
+            let type_name = type_name.clone();
+            self.advance();
+            Type::from_str(&type_name).ok_or_else(|| format!("Unknown type: {}", type_name))?
+        } else {
+            self.parse_base_type(&current_token)?
+        };
+
         tracing::event!(Level::DEBUG, "Base type initialized as {}", base_type);
 
         // Check for union type (|)
@@ -714,53 +749,7 @@ impl Parser {
                     self.peek(1)
                 ));
             }
-        };
-        tracing::event!(Level::DEBUG, "Base type initialized as {}", base_type);
-
-        // Check for union type (|)
-        if self.current() == &Token::Pipe {
-            let mut union_types = vec![base_type];
-
-            while self.current() == &Token::Pipe {
-                tracing::event!(Level::DEBUG, "found pipe, advancing to {}", self.current());
-                let _advance = self.advance();
-
-                let next_type = match self.current() {
-                    Token::Ident(type_name) => {
-                        tracing::event!(Level::DEBUG, "Parsing type: {}", type_name.clone());
-                        let type_name = type_name.clone();
-                        self.advance();
-                        Type::from_str(&type_name)
-                            .ok_or_else(|| format!("Unknown type: {}", type_name))?
-                    }
-                    Token::Nil => {
-                        tracing::event!(Level::DEBUG, "Parsing type: nil");
-                        self.advance();
-                        Type::Nil
-                    }
-                    Token::True | Token::False => {
-                        tracing::event!(Level::DEBUG, "Parsing type: boolean");
-                        self.advance();
-                        Type::Boolean
-                    }
-                    _ => {
-                        tracing::event!(
-                            Level::ERROR,
-                            "Expected type after '|', got {}",
-                            self.current()
-                        );
-                        return Err(format!("Expected type after '|', got {}", self.current()));
-                    }
-                };
-
-                union_types.push(next_type.clone());
-                tracing::event!(Level::DEBUG, "Parsed type: {}", next_type);
-            }
-
-            // Flatten and create union
-            base_type = Type::Union(Type::flatten_union(union_types));
-        }
-        Ok(base_type)
+        })
     }
 
     fn parse_expr(&mut self) -> Result<Expr, String> {
