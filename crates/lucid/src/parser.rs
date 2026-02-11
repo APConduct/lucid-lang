@@ -653,38 +653,80 @@ impl Parser {
 
             while self.current() == &Token::Pipe {
                 tracing::event!(Level::DEBUG, "found pipe, advancing to {}", self.current());
-                let _advance = self.advance();
 
-                let next_type = match self.current() {
-                    Token::Ident(type_name) => {
-                        tracing::event!(Level::DEBUG, "Parsing type: {}", type_name.clone());
+                self.advance();
+                if self.current() == &Token::LBrace {
+                    self.advance();
+                    let first_type = if let Token::Ident(type_name) = self.current() {
                         let type_name = type_name.clone();
                         self.advance();
                         Type::from_str(&type_name)
                             .ok_or_else(|| format!("Unknown type: {}", type_name))?
-                    }
-                    Token::Nil => {
-                        tracing::event!(Level::DEBUG, "Parsing type: nil");
-                        self.advance();
-                        Type::Nil
-                    }
-                    Token::True | Token::False => {
-                        tracing::event!(Level::DEBUG, "Parsing type: boolean");
-                        self.advance();
-                        Type::Boolean
-                    }
-                    _ => {
-                        tracing::event!(
-                            Level::ERROR,
-                            "Expected type after '|', got {}",
+                    } else {
+                        return Err(format!(
+                            "Expected type after '{{', got {:?}",
                             self.current()
-                        );
-                        return Err(format!("Expected type after '|', got {}", self.current()));
-                    }
-                };
+                        ));
+                    };
 
-                union_types.push(next_type.clone());
-                tracing::event!(Level::DEBUG, "Parsed type: {}", next_type);
+                    if self.current() == &Token::Colon {
+                        self.advance();
+                        let value_type = if let Token::Ident(type_name) = self.current() {
+                            let type_name = type_name.clone();
+                            self.advance();
+                            Type::from_str(&type_name)
+                                .ok_or_else(|| format!("Unknown type: {}", type_name))?
+                        } else {
+                            return Err("Expected value type after ':'".to_string());
+                        };
+                        self.expect(Token::RBrace)?;
+                        union_types.push(Type::Map(Box::new(first_type), Box::new(value_type)));
+                    } else {
+                        self.expect(Token::RBrace)?;
+                        union_types.push(Type::Array(Box::new(first_type)));
+                    }
+                } else if let Token::Ident(type_name) = self.current() {
+                    let type_name = type_name.clone();
+                    self.advance();
+                    let next_type = Type::from_str(&type_name)
+                        .ok_or_else(|| format!("Unknown type: {}", type_name))?;
+                    union_types.push(next_type);
+                } else {
+                    return Err("Expected type after '|'".to_string());
+                }
+
+                // let _advance = self.advance();
+
+                // let next_type = match self.current() {
+                //     Token::Ident(type_name) => {
+                //         tracing::event!(Level::DEBUG, "Parsing type: {}", type_name.clone());
+                //         let type_name = type_name.clone();
+                //         self.advance();
+                //         Type::from_str(&type_name)
+                //             .ok_or_else(|| format!("Unknown type: {}", type_name))?
+                //     }
+                //     Token::Nil => {
+                //         tracing::event!(Level::DEBUG, "Parsing type: nil");
+                //         self.advance();
+                //         Type::Nil
+                //     }
+                //     Token::True | Token::False => {
+                //         tracing::event!(Level::DEBUG, "Parsing type: boolean");
+                //         self.advance();
+                //         Type::Boolean
+                //     }
+                //     _ => {
+                //         tracing::event!(
+                //             Level::ERROR,
+                //             "Expected type after '|', got {}",
+                //             self.current()
+                //         );
+                //         return Err(format!("Expected type after '|', got {}", self.current()));
+                //     }
+                // };
+
+                // union_types.push(next_type.clone());
+                // tracing::event!(Level::DEBUG, "Parsed type: {}", next_type);
             }
 
             // Flatten and create union
