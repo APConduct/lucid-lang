@@ -76,6 +76,31 @@ impl Parser {
         tok
     }
 
+    fn match_token(&mut self, expected: Token) -> Result<(), String> {
+        let _span = tracing::span!(tracing::Level::INFO, "match_token");
+        let _enter = _span.enter();
+        tracing::event!(Level::TRACE, "match_token");
+        if self.current() == &expected {
+            self.advance();
+            tracing::event!(Level::TRACE, "matched");
+            Ok(())
+        } else {
+            tracing::event!(
+                Level::ERROR,
+                "Expected {:?}, got {:?}; next token: {:?}",
+                expected,
+                self.current(),
+                self.peek(1)
+            );
+            Err(format!(
+                "Expected {:?}, got {:?}; next token: {:?}",
+                expected,
+                self.current(),
+                self.peek(1)
+            ))
+        }
+    }
+
     fn error(&self, message: String) -> String {
         // TODO: enhance this with location info
         tracing::error!("{}", message);
